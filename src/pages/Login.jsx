@@ -6,7 +6,6 @@ import axios from 'axios'
 import { setCredentials } from '../store/slices/authSlice'
 import '../styles/pages/Login.css'
 
-
 const Login = () => {
   const [formData, setFormData] = useState({
     username: '',
@@ -43,7 +42,7 @@ const Login = () => {
     } catch (error) {
       setError(
         error.response?.data?.message || 
-        'An error occurred during login'
+        'Помилка під час входу'
       )
     } finally {
       setLoading(false)
@@ -52,13 +51,13 @@ const Login = () => {
   
   return (
     <div className="auth-container">
-      <h1>Login</h1>
+      <h1>Вхід</h1>
       
       {error && <p className="error-message">{error}</p>}
       
       <form onSubmit={handleSubmit} className="auth-form">
         <div className="form-group">
-          <label htmlFor="username">Username</label>
+          <label htmlFor="username">Ім&apos;я користувача</label>
           <input
             type="text"
             id="username"
@@ -70,7 +69,7 @@ const Login = () => {
         </div>
         
         <div className="form-group">
-          <label htmlFor="password">Password</label>
+          <label htmlFor="password">Пароль</label>
           <input
             type="password"
             id="password"
@@ -82,12 +81,12 @@ const Login = () => {
         </div>
         
         <button type="submit" disabled={loading}>
-          {loading ? 'Logging in...' : 'Login'}
+          {loading ? 'Вхід...' : 'Увійти'}
         </button>
       </form>
       
       <p>
-        Don&apos;t have an account? <Link to="/register">Register</Link>
+        Ще немає облікового запису? <Link to="/register">Зареєструватися</Link>
       </p>
     </div>
   )

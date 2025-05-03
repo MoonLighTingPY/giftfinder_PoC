@@ -27,7 +27,7 @@ const Register = () => {
     
     // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match')
+      setError('Паролі не співпадають')
       return
     }
     
@@ -48,7 +48,7 @@ const Register = () => {
     } catch (error) {
       setError(
         error.response?.data?.message || 
-        'An error occurred during registration'
+        'Помилка під час реєстрації'
       )
     } finally {
       setLoading(false)
@@ -57,13 +57,13 @@ const Register = () => {
   
   return (
     <div className="auth-container">
-      <h1>Register</h1>
+      <h1>Реєстрація</h1>
       
       {error && <p className="error-message">{error}</p>}
       
       <form onSubmit={handleSubmit} className="auth-form">
         <div className="form-group">
-          <label htmlFor="username">Username</label>
+          <label htmlFor="username">Ім&apos;я користувача</label>
           <input
             type="text"
             id="username"
@@ -75,7 +75,7 @@ const Register = () => {
         </div>
         
         <div className="form-group">
-          <label htmlFor="email">Email</label>
+          <label htmlFor="email">Електронна пошта</label>
           <input
             type="email"
             id="email"
@@ -87,7 +87,7 @@ const Register = () => {
         </div>
         
         <div className="form-group">
-          <label htmlFor="password">Password</label>
+          <label htmlFor="password">Пароль</label>
           <input
             type="password"
             id="password"
@@ -99,7 +99,7 @@ const Register = () => {
         </div>
         
         <div className="form-group">
-          <label htmlFor="confirmPassword">Confirm Password</label>
+          <label htmlFor="confirmPassword">Підтвердіть пароль</label>
           <input
             type="password"
             id="confirmPassword"
@@ -111,12 +111,12 @@ const Register = () => {
         </div>
         
         <button type="submit" disabled={loading}>
-          {loading ? 'Registering...' : 'Register'}
+          {loading ? 'Реєстрація...' : 'Зареєструватися'}
         </button>
       </form>
       
       <p>
-        Already have an account? <Link to="/login">Login</Link>
+        Вже маєте обліковий запис? <Link to="/login">Увійти</Link>
       </p>
     </div>
   )

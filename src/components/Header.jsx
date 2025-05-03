@@ -17,35 +17,35 @@ const Header = () => {
       <div className="header-container">
         <div className="logo">
           <Link to="/">
-            <h1>Gift Finder</h1>
+            <h1>Пошук Подарунків</h1>
           </Link>
         </div>
         
         <nav className="nav-menu">
-          <Link to="/" className="nav-link">Home</Link>
+          <Link to="/" className="nav-link">Головна</Link>
           {isAuthenticated && (
-            <Link to="/gift-finder" className="nav-link">Gift Finder</Link>
+            <Link to="/gift-finder" className="nav-link">Підбір Подарунків</Link>
           )}
         </nav>
         
         <div className="auth-menu">
           {isAuthenticated ? (
             <div className="user-menu">
-              <span className="username">Hi, {user.username}</span>
+              <span className="username">Привіт, {user.username}</span>
               <div className="dropdown-menu">
-                <Link to="/profile" className="dropdown-item">Profile</Link>
+                <Link to="/profile" className="dropdown-item">Профіль</Link>
                 <button 
                   onClick={handleLogout}
                   className="dropdown-item logout-btn"
                 >
-                  Logout
+                  Вийти
                 </button>
               </div>
             </div>
           ) : (
             <div className="auth-buttons">
-              <Link to="/login" className="btn-login">Login</Link>
-              <Link to="/register" className="btn-register">Register</Link>
+              <Link to="/login" className="btn-login">Увійти</Link>
+              <Link to="/register" className="btn-register">Реєстрація</Link>
             </div>
           )}
         </div>

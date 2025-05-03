@@ -8,52 +8,52 @@ const Home = () => {
   
   return (
     <div className="home-container">
-      <h1>Gift Finder</h1>
+      <h1>Пошук Подарунків</h1>
       <p className="tagline">
-        Find the perfect gift for anyone based on their interests
+        Знайдіть ідеальний подарунок для будь-кого на основі їхніх інтересів
       </p>
       
       {isAuthenticated ? (
         <div className="welcome-section">
-          <h2>Welcome, {user.username}!</h2>
-          <p>Ready to find the perfect gift?</p>
+          <h2>Вітаємо, {user.username}!</h2>
+          <p>Готові знайти ідеальний подарунок?</p>
           <div className="action-buttons">
             <Link to="/gift-finder" className="button primary">
-              Find Gifts
+              Знайти Подарунки
             </Link>
             <Link to="/profile" className="button secondary">
-              My Profile
+              Мій Профіль
             </Link>
           </div>
         </div>
       ) : (
         <div className="auth-section">
-          <p>Sign in to start finding the perfect gifts</p>
+          <p>Увійдіть, щоб почати пошук ідеальних подарунків</p>
           <div className="action-buttons">
             <Link to="/login" className="button primary">
-              Login
+              Увійти
             </Link>
             <Link to="/register" className="button secondary">
-              Register
+              Реєстрація
             </Link>
           </div>
         </div>
       )}
       
       <div className="features-section">
-        <h2>How It Works</h2>
+        <h2>Як це працює</h2>
         <div className="features-grid">
           <div className="feature-card">
-            <h3>Tell us about them</h3>
-            <p>Enter information about the person you&apos;re shopping for</p>
+            <h3>Розкажіть про людину</h3>
+            <p>Введіть інформацію про людину, для якої шукаєте подарунок</p>
           </div>
           <div className="feature-card">
-            <h3>Smart Matching</h3>
-            <p>Our system matches interests with perfect gift ideas</p>
+            <h3>Розумний підбір</h3>
+            <p>Наша система підбирає подарунки відповідно до інтересів</p>
           </div>
           <div className="feature-card">
-            <h3>AI Powered</h3>
-            <p>Get personalized recommendations for unique gifts</p>
+            <h3>На основі ШІ</h3>
+            <p>Отримуйте персоналізовані рекомендації унікальних подарунків</p>
           </div>
         </div>
       </div>

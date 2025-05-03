@@ -16,7 +16,7 @@ const Profile = () => {
   
   return (
     <div className="profile-container">
-      <h1>My Profile</h1>
+      <h1>Мій Профіль</h1>
       
       <div className="profile-card">
         <div className="profile-info">
@@ -26,7 +26,7 @@ const Profile = () => {
         
         <div className="profile-actions">
           <button className="button danger" onClick={handleLogout}>
-            Logout
+            Вийти
           </button>
         </div>
       </div>

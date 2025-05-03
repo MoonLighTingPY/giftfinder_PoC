@@ -36,7 +36,7 @@ const GiftFinder = () => {
       )
       setGifts(response.data)
     } catch (error) {
-      console.error('Error getting recommendations:', error)
+      console.error('Помилка отримання рекомендацій:', error)
     } finally {
       setLoading(false)
     }
@@ -44,11 +44,11 @@ const GiftFinder = () => {
 
   return (
     <div className="container">
-      <h1>Gift Finder</h1>
+      <h1>Пошук Подарунків</h1>
       
       <form onSubmit={handleSubmit} className="gift-form">
         <div className="form-group">
-          <label>Age:</label>
+          <label>Вік:</label>
           <input 
             type="number" 
             name="age" 
@@ -59,33 +59,33 @@ const GiftFinder = () => {
         </div>
         
         <div className="form-group">
-          <label>Gender:</label>
+          <label>Стать:</label>
           <select 
             name="gender" 
             value={recipientInfo.gender} 
             onChange={handleChange} 
             required
           >
-            <option value="">Select gender</option>
-            <option value="male">Male</option>
-            <option value="female">Female</option>
-            <option value="other">Other</option>
+            <option value="">Оберіть стать</option>
+            <option value="male">Чоловіча</option>
+            <option value="female">Жіноча</option>
+            <option value="other">Інша</option>
           </select>
         </div>
         
         <div className="form-group">
-          <label>Interests/Hobbies:</label>
+          <label>Інтереси/Хобі:</label>
           <textarea 
             name="interests" 
             value={recipientInfo.interests} 
             onChange={handleChange} 
-            placeholder="Enter interests separated by commas" 
+            placeholder="Введіть інтереси, розділені комами" 
             required
           ></textarea>
         </div>
         
         <div className="form-group">
-          <label>Profession:</label>
+          <label>Професія:</label>
           <input 
             type="text" 
             name="profession" 
@@ -95,15 +95,15 @@ const GiftFinder = () => {
         </div>
         
         <button type="submit" disabled={loading}>
-          {loading ? 'Finding gifts...' : 'Find Gifts'}
+          {loading ? 'Пошук подарунків...' : 'Знайти подарунки'}
         </button>
       </form>
       
-      {loading && <p>Looking for perfect gifts...</p>}
+      {loading && <p>Шукаємо ідеальні подарунки...</p>}
       
       {gifts.length > 0 && (
         <div className="gifts-container">
-          <h2>Recommended Gifts</h2>
+          <h2>Рекомендовані подарунки</h2>
           <div className="gift-list">
             {gifts.map((gift) => (
               <div key={gift.id} className="gift-card">
