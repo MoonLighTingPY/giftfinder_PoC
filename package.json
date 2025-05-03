@@ -22,12 +22,14 @@
     "jsonwebtoken": "^9.0.2",
     "jwt-decode": "^4.0.0",
     "mysql2": "^3.14.1",
+    "node-llama-cpp": "^3.7.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-redux": "^9.2.0",
     "react-router-dom": "^7.5.3",
     "redux": "^5.0.1",
-    "redux-persist": "^6.0.0"
+    "redux-persist": "^6.0.0",
+    "require": "^2.4.20"
   },
   "devDependencies": {
     "@eslint/js": "^9.11.1",
