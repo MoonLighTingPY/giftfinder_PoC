@@ -1,0 +1,157 @@
+.header {
+    background-color: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  
+  .header-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1rem;
+    height: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  
+  .logo h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: #646cff;
+  }
+  
+  .nav-menu {
+    display: flex;
+    gap: 1.5rem;
+  }
+  
+  .nav-link {
+    color: #333;
+    font-weight: 500;
+    padding: 0.5rem 0;
+    position: relative;
+    transition: color 0.3s;
+  }
+  
+  .nav-link:hover {
+    color: #646cff;
+  }
+  
+  .nav-link::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background-color: #646cff;
+    transition: width 0.3s;
+  }
+  
+  .nav-link:hover::after {
+    width: 100%;
+  }
+  
+  .auth-buttons {
+    display: flex;
+    gap: 1rem;
+  }
+  
+  .btn-login, .btn-register {
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    font-weight: 500;
+    transition: all 0.3s;
+  }
+  
+  .btn-login {
+    color: #646cff;
+  }
+  
+  .btn-register {
+    background-color: #646cff;
+    color: white;
+  }
+  
+  .btn-login:hover {
+    background-color: rgba(100, 108, 255, 0.1);
+  }
+  
+  .btn-register:hover {
+    background-color: #535bf2;
+  }
+  
+  .user-menu {
+    position: relative;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+  }
+  
+  .username {
+    font-weight: 500;
+    color: #333;
+    padding: 0.5rem;
+    border-radius: 4px;
+  }
+  
+  .user-menu:hover .username {
+    background-color: #f5f5f5;
+  }
+  
+  .dropdown-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    width: 150px;
+    background-color: white;
+    border-radius: 4px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    padding: 0.5rem 0;
+    display: none;
+    z-index: 10;
+  }
+  
+  .user-menu:hover .dropdown-menu {
+    display: block;
+  }
+  
+  .dropdown-item {
+    display: block;
+    padding: 0.5rem 1rem;
+    color: #333;
+    text-align: left;
+    width: 100%;
+  }
+  
+  .dropdown-item:hover {
+    background-color: #f5f5f5;
+  }
+  
+  .logout-btn {
+    color: #ff4757;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  
+  /* Responsive layout */
+  @media (max-width: 768px) {
+    .header-container {
+      flex-wrap: wrap;
+      height: auto;
+      padding: 1rem;
+    }
+    
+    .nav-menu {
+      order: 3;
+      width: 100%;
+      justify-content: center;
+      margin-top: 1rem;
+    }
+    
+    .auth-menu {
+      order: 2;
+    }
+  }

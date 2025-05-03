@@ -41,3 +41,15 @@ button {
 .text-center {
   text-align: center;
 }
+
+/* Add these to your existing App.css */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.main-content {
+  flex: 1;
+  padding-top: 1rem;
+}
