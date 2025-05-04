@@ -7,7 +7,6 @@ import bcrypt from 'bcrypt';
 import process from 'process';
 import { getImageUrl } from '../services/pexelsService.js';
 import { generateCompletion, formatMistralPrompt } from '../services/llamaService.js';
-import { translateToEnglish } from '../services/pexelsService.js';
 
 dotenv.config();
 
@@ -320,19 +319,11 @@ async function generateAiGifts(age, gender, interests, profession, budget, occas
         continue
       }
 
-      // 3b) translate once
-      let name_en = null
-      try {
-        name_en = await translateToEnglish(gift.name)
-      } catch {
-        console.warn(`⚠️ [${requestId}] Translation failed for "${gift.name}"`)
-      }
-
       // 3c) fetch image (skip re‑translate)
       let image_url = null
       try {
-        const queryName = name_en || gift.name
-        image_url = await getImageUrl(queryName, Boolean(name_en))
+        const queryName = gift.name
+        image_url = await getImageUrl(queryName, false)
       } catch {
         console.warn(`⚠️ [${requestId}] No image for "${gift.name}"`)
       }
@@ -347,7 +338,7 @@ async function generateAiGifts(age, gender, interests, profession, budget, occas
         `INSERT INTO gifts
           (name, name_en, description, price_range, budget_min, budget_max, image_url)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [gift.name, name_en, gift.description, gift.price_range, budget_min, budget_max, image_url]
+        [gift.name, null, gift.description, gift.price_range, budget_min, budget_max, image_url]
       )
       const newId = ins.insertId
       console.log(`✅ [${requestId}] Inserted "${gift.name}" (id=${newId})`)
@@ -374,7 +365,7 @@ async function generateAiGifts(age, gender, interests, profession, budget, occas
       aiGifts.push({
         id: newId,
         name: gift.name,
-        name_en,
+        name_en: null,
         description: gift.description,
         price_range: gift.price_range,
         budget_min,

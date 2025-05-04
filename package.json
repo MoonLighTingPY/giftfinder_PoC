@@ -13,6 +13,7 @@
     "dev:full": "concurrently \"npm run dev\" \"npm run server\""
   },
   "dependencies": {
+    "@huggingface/inference": "^3.11.0",
     "@reduxjs/toolkit": "^2.7.0",
     "@vitalets/google-translate-api": "^9.2.1",
     "axios": "^1.9.0",
