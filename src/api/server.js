@@ -125,83 +125,62 @@ app.post('/api/login', async (req, res) => {
 app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
   try {
     const { age, gender, interests, profession } = req.body;
-    
-    // First approach: Get database gifts based on tags
+
+    // 1. Analyze user input to get relevant tags using LLM
     const aiTags = await analyzeUserInput({ age, gender, interests, profession });
     console.log('LLM suggested tags:', aiTags);
-    
-    // Build the query with the LLM-suggested tags
-    let query = `
-      SELECT 
-        g.*, 
-        COUNT(DISTINCT t.id) as match_count
-      FROM 
-        gifts g
-      JOIN 
-        gift_tags gt ON g.id = gt.gift_id
-      JOIN
-        tags t ON gt.tag_id = t.id
-      WHERE 1=1
-    `;
-    
-    const queryParams = [];
-    
-    // Add conditions for age tags
-    if (aiTags.ageTags.length > 0) {
-      query += ` AND EXISTS (
-        SELECT 1 FROM gift_tags gt2 
-        JOIN tags t2 ON gt2.tag_id = t2.id 
-        WHERE gt2.gift_id = g.id AND t2.category = 'age' AND t2.name IN (?)
-      )`;
-      queryParams.push(aiTags.ageTags);
+
+    // 2. Build and execute the database query based on suggested tags
+    let dbGifts = [];
+    const allSuggestedTags = [
+      ...(aiTags.ageTags || []),
+      ...(aiTags.genderTags || []),
+      ...(aiTags.interestTags || []),
+      ...(aiTags.professionTags || [])
+    ].filter(tag => tag); // Filter out any null/undefined/empty tags
+
+    if (allSuggestedTags.length > 0) {
+      const query = `
+        SELECT
+          g.*,
+          COUNT(DISTINCT t.id) as match_count
+        FROM
+          gifts g
+        JOIN
+          gift_tags gt ON g.id = gt.gift_id
+        JOIN
+          tags t ON gt.tag_id = t.id
+        WHERE
+          t.name IN (?) -- Use the combined list of all suggested tags
+        GROUP BY
+          g.id
+        ORDER BY
+          match_count DESC, g.id
+        LIMIT 8
+      `;
+      const queryParams = [allSuggestedTags];
+
+      try {
+        // console.log('SQL query:', query);
+        // console.log('Query params:', queryParams);
+        [dbGifts] = await pool.query(query, queryParams);
+        console.log(`Found ${dbGifts.length} gifts from database matching tags`);
+      } catch (sqlError) {
+        console.error('SQL Error executing recommendation query:', sqlError);
+        // Don't stop execution, just log the error and proceed without DB gifts
+        dbGifts = [];
+      }
+    } else {
+      console.log('No valid tags suggested by LLM or extracted.');
+      // Proceed without DB gifts based on tags
     }
-    
-    // Add conditions for gender tags
-    if (aiTags.genderTags.length > 0) {
-      query += ` AND EXISTS (
-        SELECT 1 FROM gift_tags gt3 
-        JOIN tags t3 ON gt3.tag_id = t3.id 
-        WHERE gt3.gift_id = g.id AND t3.category = 'gender' AND t3.name IN (?)
-      )`;
-      queryParams.push(aiTags.genderTags);
-    }
-    
-    // Add conditions for interest tags if specified
-    if (aiTags.interestTags.length > 0) {
-      query += ` AND EXISTS (
-        SELECT 1 FROM gift_tags gt4 
-        JOIN tags t4 ON gt4.tag_id = t4.id 
-        WHERE gt4.gift_id = g.id AND t4.category = 'interest' AND t4.name IN (?)
-      )`;
-      queryParams.push(aiTags.interestTags);
-    }
-    
-    // Add conditions for profession tags if specified
-    if (aiTags.professionTags.length > 0) {
-      query += ` AND EXISTS (
-        SELECT 1 FROM gift_tags gt5 
-        JOIN tags t5 ON gt5.tag_id = t5.id 
-        WHERE gt5.gift_id = g.id AND t5.category = 'profession' AND t5.name IN (?)
-      )`;
-      queryParams.push(aiTags.professionTags);
-    }
-    
-    // Group by gift ID and order by match count and ID
-    query += `
-      GROUP BY g.id
-      ORDER BY match_count DESC, g.id
-      LIMIT 8
-    `;
-    
-    // console.log('SQL query:', query);
-    // console.log('Query params:', queryParams);
-    
-    // Execute the query
-    const [dbGifts] = await pool.query(query, queryParams);
-    console.log(`Found ${dbGifts.length} gifts from database`);
-    
-    // Get AI-generated gift suggestions using only Llama
-    const systemPrompt = `You are a gift recommendation expert system that suggests personalized gifts based on a person's characteristics.`;
+
+    // 3. Get AI-generated gift suggestions
+    let aiGifts = [];
+    const systemPrompt = `
+      You are a gift recommendation expert bot that suggests gifts based on user characteristics.
+      You return your answer ONLY as a valid JSON array, always in Ukrainian language and at without ANY additional text
+    `.trim();
 
     const userPrompt = `
       I need to find the perfect gift for a person with these characteristics:
@@ -212,6 +191,9 @@ app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
       Profession: ${profession || 'not specified'}
       
       Suggest 3 specific gift ideas with descriptions and approximate price ranges.
+      Make sure they are not repetitive and are suitable for the given characteristics.
+      Each gift should be unique, not repetitive and relevant to the user.
+      Make sure the names and descriptions are not repetitive and are suitable for the given characteristics.
       Each gift should be presented in this JSON format:
       
       {
@@ -228,85 +210,101 @@ app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
         { gift 3 }
       ]
     `;
-    
-    let aiGifts = [];
-    
+
     try {
       console.log('🧠 Using local LLM for gift suggestions');
       const formattedPrompt = formatMistralPrompt(systemPrompt, userPrompt);
       const result = await generateCompletion(formattedPrompt, {
         temperature: 0.7,
-        maxTokens: 3000
+        maxTokens: 1000 // Increased slightly if needed for longer descriptions
       });
-      
-      console.log('LLM gift suggestion response length:', result.length);
-      console.log('LLM gift suggestion response:', result);
-      
-      // Extract JSON from text response
+
+      console.log('LLM gift suggestion raw response:', result);
+
+      // Extract JSON array using a non-greedy regex
       const jsonMatch = result.match(/(\[[\s\S]*?\])/);
       if (jsonMatch && jsonMatch[1]) {
         try {
-          aiGifts = JSON.parse(jsonMatch[1]);
+          // Clean the JSON string: remove backslashes before underscores
+          const cleanedJsonString = jsonMatch[1].replace(/\\_/g, '_');
           
-          // Ensure all AI gifts have an ID (negative to distinguish from DB gifts)
+          // Parse the cleaned string
+          aiGifts = JSON.parse(cleanedJsonString); 
+
+          // Add necessary fields and fetch images for AI gifts
           aiGifts = aiGifts.map((gift, index) => ({
+            // ... (rest of the mapping code)
             ...gift,
-            id: -1000 - index, // Use negative IDs for AI-generated gifts
+            id: -1000 - index, // Negative IDs to distinguish from DB gifts
             ai_generated: true,
-            image_url: null // Will be populated by enrichGiftsWithImages
+            image_url: null // Placeholder for image
           }));
-          
-          // Add this NEW code to fetch images for AI gifts
+
           console.log('📸 Fetching images for AI-generated gift suggestions...');
           for (const gift of aiGifts) {
             try {
-              gift.image_url = await getImageUrl(gift.name);
-              console.log(`✅ Added image for AI gift: "${gift.name}"`);
+              // Ensure gift.name is valid before fetching image
+              if (gift.name && typeof gift.name === 'string' && gift.name.trim() !== '') {
+                 gift.image_url = await getImageUrl(gift.name);
+                 console.log(`✅ Added image for AI gift: "${gift.name}"`);
+              } else {
+                 console.warn(`⚠️ Skipping image fetch for AI gift with invalid name:`, gift);
+              }
             } catch (error) {
-              console.error(`❌ Failed to get image for AI gift "${gift.name}":`, error.message);
-              // Keep null image_url if fetch fails
+              console.error(`❌ Failed to get image for AI gift "${gift.name || 'N/A'}":`, error.message);
             }
           }
         } catch (e) {
           console.error('Failed to parse LLM gift suggestions as JSON:', e);
-          aiGifts = [];
+          aiGifts = []; // Reset if parsing fails
         }
+      } else {
+         console.warn('⚠️ No valid JSON array found in LLM response.');
+         aiGifts = [];
       }
     } catch (error) {
       console.error('LLM gift suggestion error:', error.message);
-      aiGifts = [];
+      aiGifts = []; // Reset on LLM error
     }
-    
-    // Combine database gifts with AI-generated gifts
-    let combinedGifts = [...dbGifts];
-    
-    // Only add AI gifts if we have valid ones
-    if (aiGifts.length > 0) {
-      combinedGifts = [...combinedGifts, ...aiGifts];
-    }
-    
-    // Ensure we have at least some gifts
+
+    // 4. Combine and enrich results
+    let combinedGifts = [...dbGifts, ...aiGifts];
+
+    // Remove duplicates based on name (prefer database gifts if names clash)
+    const uniqueGiftNames = new Set();
+    combinedGifts = combinedGifts.filter(gift => {
+        if (uniqueGiftNames.has(gift.name.toLowerCase())) {
+            return false; // Skip duplicate name
+        }
+        uniqueGiftNames.add(gift.name.toLowerCase());
+        return true;
+    });
+
+
+    // Ensure we have at least some gifts as a fallback
     if (combinedGifts.length === 0) {
+      console.log('No gifts found from DB or AI, fetching random gifts as fallback.');
       const [randomGifts] = await pool.query(
-        'SELECT * FROM gifts ORDER BY RAND() LIMIT 5'
+        'SELECT *, 0 as match_count FROM gifts ORDER BY RAND() LIMIT 5'
       );
-      combinedGifts = randomGifts;
+      combinedGifts = randomGifts.map(g => ({ ...g, ai_generated: false })); // Ensure structure matches
     }
-    
-    // Enrich gifts with images
+
+    // Enrich any remaining gifts without images (e.g., random fallback gifts)
     const enrichedGifts = await enrichGiftsWithImages(combinedGifts);
-    
-    // Add a badge or indicator for AI-generated suggestions
+
+    // Add the ai_suggested flag for the frontend
     const finalGifts = enrichedGifts.map(gift => ({
       ...gift,
-      ai_suggested: gift.ai_generated === true
+      ai_suggested: gift.ai_generated === true // Ensure boolean
     }));
-    
+
+    // 5. Send response
     res.json(finalGifts);
-    
+
   } catch (error) {
     console.error('Gift recommendation error:', error.message);
-    res.status(500).json({ message: 'Помилка сервера' });
+    res.status(500).json({ message: 'Помилка сервера під час отримання рекомендацій.' });
   }
 });
 
