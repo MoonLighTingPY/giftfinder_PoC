@@ -37,7 +37,8 @@ export async function translateToEnglish(text) {
       "You are a helpful assistant that translates Ukrainian to English. " +
       "Reply with ONLY the translation (no extra text). " +
       "If the input exceeds two words, ALWAYS produce a translation of at most two words. Never more than two twords!" +
-      "If the text is already English, return it unchanged.";
+      "If the text is already English, return it unchanged." +
+      "NEVER add \"\" to your response, this is PROHIBITED! EVEN IF THE INPUT HAS \"\"!";
     const prompt = formatMistralPrompt(systemPrompt, text)
     const llamaResult = await generateCompletion(prompt, { temperature: 0, maxTokens: 100 })
     const llamaTranslation = llamaResult.trim()
