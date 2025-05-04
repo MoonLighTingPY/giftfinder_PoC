@@ -89,7 +89,41 @@ export const searchImages = async (query, perPage = 1) => {
 
 export const getImageUrl = async (query) => {
   try {
-    const photos = await searchImages(query);
+    // Create a more unique search term by adding a random word from this list
+    const diversifiers = ["colorful", "beautiful", "modern", "elegant", "creative", "unique", "special"];
+    const randomDiversifier = diversifiers[Math.floor(Math.random() * diversifiers.length)];
+    
+    // Try to get images for the original query
+    let photos = await searchImages(query);
+    
+    // If nothing found and it's falling back to generic "gift" search,
+    // add a random page number and random diversifier to get different results
+    if (!photos.length || photos[0].src.medium.includes("16116703")) {
+      console.log(`🎨 Diversifying search with "${randomDiversifier} gift"`);
+      const randomPage = Math.floor(Math.random() * 5) + 1; // Get a random page between 1-5
+      
+      const diverseResponse = await axios.get(`https://api.pexels.com/v1/search`, {
+        params: {
+          query: `${randomDiversifier} gift`,
+          per_page: 15,
+          page: randomPage,
+          orientation: 'square'
+        },
+        headers: {
+          Authorization: pexelsApiKey
+        }
+      });
+      
+      photos = diverseResponse.data.photos || [];
+      
+      // Pick a random photo from the results instead of always the first one
+      if (photos.length > 0) {
+        const randomIndex = Math.floor(Math.random() * photos.length);
+        console.log(`🖼️ Using diversified random image (#${randomIndex}) for ${query}`);
+        return photos[randomIndex].src.medium;
+      }
+    }
+    
     if (photos && photos.length > 0) {
       console.log(`🖼️ Using image for ${query}: ${photos[0].src.medium}`);
       return photos[0].src.medium;

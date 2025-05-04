@@ -255,6 +255,18 @@ app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
             ai_generated: true,
             image_url: null // Will be populated by enrichGiftsWithImages
           }));
+          
+          // Add this NEW code to fetch images for AI gifts
+          console.log('📸 Fetching images for AI-generated gift suggestions...');
+          for (const gift of aiGifts) {
+            try {
+              gift.image_url = await getImageUrl(gift.name);
+              console.log(`✅ Added image for AI gift: "${gift.name}"`);
+            } catch (error) {
+              console.error(`❌ Failed to get image for AI gift "${gift.name}":`, error.message);
+              // Keep null image_url if fetch fails
+            }
+          }
         } catch (e) {
           console.error('Failed to parse LLM gift suggestions as JSON:', e);
           aiGifts = [];
@@ -442,14 +454,27 @@ const determineAgeGroup = (age) => {
 
 // Helper functions
 async function enrichGiftsWithImages(gifts) {
-  // Simply return the gifts without attempting to fetch missing images
-  // AI-generated gifts still need a default null image_url if they don't have one
-  return gifts.map(gift => {
-    if (gift.ai_generated && !gift.image_url) {
-      return { ...gift, image_url: null };
+  const enrichedGifts = [...gifts];
+  
+  // Process gifts without images (both DB and AI-generated)
+  for (let i = 0; i < enrichedGifts.length; i++) {
+    const gift = enrichedGifts[i];
+    
+    // Skip gifts that already have images
+    if (gift.image_url) continue;
+    
+    try {
+      // Use gift name to find an appropriate image
+      const imageUrl = await getImageUrl(gift.name);
+      enrichedGifts[i] = { ...gift, image_url: imageUrl };
+      console.log(`✅ Added missing image for "${gift.name}"`);
+    } catch (error) {
+      console.error(`❌ Could not find image for "${gift.name}":`, error.message);
+      // Keep the gift with null image_url
     }
-    return gift;
-  });
+  }
+  
+  return enrichedGifts;
 }
 
 // Image initialization on startup
