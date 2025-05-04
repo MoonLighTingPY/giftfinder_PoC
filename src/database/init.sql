@@ -324,8 +324,6 @@ CREATE INDEX idx_gifts_name ON gifts(name);
 CREATE INDEX idx_gifts_name_en ON gifts(name_en);
 CREATE INDEX idx_gifts_budget_min ON gifts(budget_min); -- Index for budget
 CREATE INDEX idx_gifts_budget_max ON gifts(budget_max); -- Index for budget
-CREATE INDEX idx_tags_name ON tags(name);
-CREATE INDEX idx_tags_category ON tags(category);
 CREATE INDEX idx_gift_tags_gift_id ON gift_tags(gift_id);
 CREATE INDEX idx_gift_tags_tag_id ON gift_tags(tag_id);
 
