@@ -194,7 +194,7 @@
   }
 
   .gift-card.ai-suggested {
-    border: 2px solid #646cff;
+    border: 2px solid #aa1cff;
     position: relative;
   }
   
@@ -202,7 +202,7 @@
     position: absolute;
     top: 10px;
     right: 10px;
-    background-color: #646cff;
+    background-color: #aa1cff;
     color: white;
     padding: 4px 8px;
     border-radius: 4px;
@@ -213,17 +213,57 @@
 
   .ai-generating-message {
     text-align: center;
-    margin: 1rem 0;
-    padding: 0.75rem;
-    background-color: #f0f7ff;
-    border-radius: 4px;
+    margin: 1.5rem auto; /* Center horizontally and add more margin */
+    padding: 1rem 1.5rem;
+    background-color: #eef2ff; /* Lighter blue */
+    border-radius: 6px;
     font-style: italic;
-    color: #646cff;
-    animation: pulse 1.5s infinite;
+    color: #4f46e5; /* Indigo color */
+    max-width: 400px; /* Limit width */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    animation: pulse 1.8s infinite ease-in-out;
   }
   
+  .ai-generating-message p {
+    margin: 0;
+    font-weight: 500;
+  }
+  
+  /* New Initial Searching Message Style */
+  .initial-searching-message {
+    text-align: center;
+    margin: 3rem auto; /* More prominent margin */
+    padding: 1.5rem;
+    font-size: 1.1rem;
+    color: #555;
+    font-weight: 500;
+    display: flex; /* Use flex for alignment */
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem; /* Space between text and spinner */
+  }
+  
+  /* Optional: Add a simple spinner */
+  .initial-searching-message::before {
+    content: '';
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(100, 108, 255, 0.3); /* Lighter border */
+    border-radius: 50%;
+    border-top-color: #646cff; /* Main color for spinner top */
+    animation: spin 1s linear infinite;
+  }
+  
+  /* Spinner Animation */
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  
+  /* Keep or adjust pulse animation */
   @keyframes pulse {
-    0% { opacity: 0.7; }
-    50% { opacity: 1; }
-    100% { opacity: 0.7; }
+    0%, 100% { opacity: 0.8; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.02); }
   }

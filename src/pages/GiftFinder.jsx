@@ -212,7 +212,7 @@ const GiftFinder = () => {
 
           {/* Show AI generation status message */}
           {aiStatus === 'generating' && (
-              <div className="ai-generating-message">
+              <div className="initial-searching-message">
                 <p>ШІ генерує додаткові подарунки...</p>
               </div>
             )}
@@ -263,7 +263,7 @@ const GiftFinder = () => {
           </div> // End gifts-container
         ) : (
           // Show the main "Searching..." message only when isSearching is true AND no results yet
-          isSearching && <p>Шукаємо ідеальні подарунки...</p>
+          isSearching && <p className="initial-searching-message">Шукаємо ідеальні подарунки...</p>
         )}
 
       {/* The rest of the component return continues after this */}
