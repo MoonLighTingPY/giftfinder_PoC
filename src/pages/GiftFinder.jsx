@@ -43,6 +43,7 @@ const GiftFinder = () => {
   const [aiStatus, setAiStatus] = useState(null);
   const [requestId, setRequestId] = useState(null);
   const [submittedCriteria, setSubmittedCriteria] = useState(null);
+  const [useAi, setUseAi] = useState(true)
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -67,7 +68,11 @@ const GiftFinder = () => {
       if (budgetToSend === '500+') {
         budgetToSend = '500-99999'; // Match backend expectation
       }
-      const payload = { ...recipientInfo, budget: budgetToSend };
+      const payload = {
+        ...recipientInfo,
+        budget: budgetToSend,
+        useAi
+      };
 
 
       const response = await axios.post(
@@ -81,6 +86,12 @@ const GiftFinder = () => {
       const initialDbGifts = response.data.gifts || [];
       setDbGifts(initialDbGifts);
       setGifts(initialDbGifts);
+
+      if (!useAi) {
+        setAiStatus('not_started')
+        setIsSearching(false)
+        return
+      }
 
       if (response.data.aiStatus === 'generating' && response.data.requestId) {
         setAiStatus('generating');
@@ -219,6 +230,17 @@ const GiftFinder = () => {
         <button type="submit" disabled={isSearching}>
           {isSearching ? 'Пошук...' : 'Знайти подарунки'}
         </button>
+        <div className="toggle-switch">
+          <label className="switch">
+            <input
+              type="checkbox"
+              checked={useAi}
+              onChange={() => setUseAi(prev => !prev)}
+            />
+            <span className="slider" />
+          </label>
+          <span className="toggle-label">Використовувати генерацію AI</span>
+        </div>
       </form>
 
       {error && <div className="error-message">{error}</div>}

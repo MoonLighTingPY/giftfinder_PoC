@@ -114,16 +114,10 @@ app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
 
   try {
     // Destructure new fields: budget, occasion
-    const { age, gender, interests, profession, budget, occasion } = req.body;
-    requestId = Date.now().toString() + Math.random().toString(36).substring(2);
+    const { age, gender, interests, profession, budget, occasion, useAi } = req.body;
+    const requestId = Date.now().toString() + Math.random().toString(36).slice(2);
 
     // --- Start Background AI Gift Generation Immediately (Updated) ---
-    generateAiGifts(age, gender, interests, profession, budget, occasion, requestId).catch(err => { // Pass budget & occasion
-      console.error(`Background AI gift generation error for ${requestId}:`, err);
-      if (pendingAiSuggestions.has(requestId)) {
-        pendingAiSuggestions.set(requestId, { status: 'error', error: err.message || 'Unknown AI generation error' });
-      }
-    });
     // -----------------------------------------------------
 
     // 1. Analyze user input (Updated)
@@ -211,13 +205,21 @@ app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
 
     // 3. Return database gifts immediately
     console.log(`Sending initial response for ${requestId} with ${dbGifts.length} DB gifts.`);
-    res.json({
-      gifts: dbGifts.map(g => ({ ...g, ai_suggested: false })),
-      aiStatus: 'generating',
-      requestId: requestId
-    });
     enrichGiftsWithImages(dbGifts.map(g => ({ ...g, ai_suggested: false })))
       .catch(err => console.error('Async image enrichment failed:', err))
+
+    if (useAi) {
+      pendingAiSuggestions.set(requestId, { status: 'generating' });
+      generateAiGifts(age, gender, interests, profession, budget, occasion, requestId)
+        .catch(() => { });
+    }
+
+    res.json({
+      gifts: dbGifts.map(g => ({ ...g, ai_suggested: false })),
+      aiStatus: useAi ? 'generating' : 'not_started',
+      requestId: useAi ? requestId : null
+    });
+
 
   } catch (error) {
     console.error('Gift recommendation initial request error:', error.message);
