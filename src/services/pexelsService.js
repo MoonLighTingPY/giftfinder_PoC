@@ -84,34 +84,9 @@ export const searchImages = async (query, perPage = 1) => {
       return data.photos;
     }
 
-    // If no results, try with first word only
-    if (query.includes(' ')) {
-      const mainKeyword = query.split(' ')[0];
-      console.log(`🔎 Trying with first word: "${mainKeyword}"`);
-      data = await makePexelsRequest(`https://api.pexels.com/v1/search`, {
-        query: mainKeyword,
-        per_page: perPage,
-        orientation: 'square'
-      });
-
-      if (data.photos && data.photos.length > 0) {
-        console.log(`✅ Found ${data.photos.length} images for "${mainKeyword}"`);
-        imageCache.set(query, data.photos); // Cache under original query
-        return data.photos;
-      }
-    }
-
-    // If still no results, search for "gift"
-    console.log('🎁 Falling back to generic "gift" search');
-    data = await makePexelsRequest(`https://api.pexels.com/v1/search`, {
-      query: 'gift present', // Keep generic query simple
-      per_page: perPage,
-      orientation: 'square'
-    });
-
-    const fallbackResults = data.photos || [];
-    imageCache.set(query, fallbackResults); // Cache fallback under original query
-    return fallbackResults;
+    const results = data.photos || [];
+    imageCache.set(query, results); // Cache fallback under original query
+    return results;
 
   // eslint-disable-next-line no-unused-vars
   } catch (error) {

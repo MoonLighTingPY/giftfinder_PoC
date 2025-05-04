@@ -587,6 +587,15 @@ async function enrichGiftsWithImages(gifts) {
   }
 })();
 
+setInterval(async () => {
+  console.log('⏳ Periodic retry to fetch missing images…');
+  try {
+    await fetchAndAssignImagesInBackground(/* force = */ false);
+  } catch (err) {
+    console.error('Periodic image fetch failed:', err);
+  }
+}, 60 * 1000);
+
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`)
