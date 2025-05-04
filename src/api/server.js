@@ -208,16 +208,16 @@ app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
       }
     }
 
-    // Enrich DB gifts
-    const enrichedDbGifts = await enrichGiftsWithImages(dbGifts.map(g => ({...g, ai_suggested: false})));
 
     // 3. Return database gifts immediately
-    console.log(`Sending initial response for ${requestId} with ${enrichedDbGifts.length} DB gifts.`);
+    console.log(`Sending initial response for ${requestId} with ${dbGifts.length} DB gifts.`);
     res.json({
-      gifts: enrichedDbGifts,
+      gifts: dbGifts.map(g => ({ ...g, ai_suggested: false })),
       aiStatus: 'generating',
       requestId: requestId
     });
+    enrichGiftsWithImages(dbGifts.map(g => ({ ...g, ai_suggested: false })))
+    .catch(err => console.error('Async image enrichment failed:', err))
 
   } catch (error) {
     console.error('Gift recommendation initial request error:', error.message);
