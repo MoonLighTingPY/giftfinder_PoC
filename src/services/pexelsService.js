@@ -2,19 +2,45 @@
 import axios from 'axios';
 import process from 'process';
 import dotenv from 'dotenv';
+import { translate } from '@vitalets/google-translate-api';
 
 dotenv.config();
 
 const pexelsApiKey = process.env.VITE_PEXELS_API_KEY;
 const imageCache = new Map();
+const translationCache = new Map();
 
 // Helper function for delays
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Helper function to translate Ukrainian to English
+async function translateToEnglish(text) {
+  // Check cache first
+  if (translationCache.has(text)) {
+    console.log(`🔄 Using cached translation for "${text}"`);
+    return translationCache.get(text);
+  }
+
+  try {
+    console.log(`🌐 Translating "${text}" to English`);
+    const result = await translate(text, { to: 'en' });
+    const translatedText = result.text;
+    
+    // Cache the result
+    translationCache.set(text, translatedText);
+    console.log(`✅ Translated: "${text}" → "${translatedText}"`);
+    
+    return translatedText;
+  } catch (error) {
+    console.error(`❌ Translation error for "${text}":`, error.message);
+    return text; // Return original text on error
+  }
+}
+
 // Helper to make cancellable Pexels requests with retry
 const makePexelsRequest = async (url, params, attempt = 1) => {
   const MAX_RETRIES = 5;
-  const RETRY_DELAY = 20000; // 2.5 seconds delay on retry
+  const RETRY_DELAY = 20000; // 20 seconds delay on retry
 
   try {
     const response = await axios.get(url, {
@@ -35,7 +61,6 @@ const makePexelsRequest = async (url, params, attempt = 1) => {
     }
   }
 };
-
 
 export const searchImages = async (query, perPage = 1) => {
   if (imageCache.has(query)) {
@@ -90,52 +115,47 @@ export const searchImages = async (query, perPage = 1) => {
 
   // eslint-disable-next-line no-unused-vars
   } catch (error) {
+    // Error already logged in makePexelsRequest
     return []; // Return empty array on failure
   }
 };
 
 export const getImageUrl = async (query) => {
   try {
-    const diversifiers = ["colorful", "beautiful", "modern", "elegant", "creative", "unique", "special"];
-    const randomDiversifier = diversifiers[Math.floor(Math.random() * diversifiers.length)];
+    // Translate the query from Ukrainian to English
+    const translatedQuery = await translateToEnglish(query);
+    
+    // Use translated query for image search - only need 1 image
+    let photos = await searchImages(translatedQuery, 1);  // Changed from 15 to 1
 
-    let photos = await searchImages(query, 15); // Fetch more images initially
-
-    // Check if fallback was used or specific problematic image appeared
-    const isFallback = !photos.length || (photos[0]?.src?.medium?.includes("16116703"));
-
-    if (isFallback) {
-      console.log(`🎨 Diversifying search with "${randomDiversifier} gift"`);
-      const randomPage = Math.floor(Math.random() * 5) + 1;
-      const data = await makePexelsRequest(`https://api.pexels.com/v1/search`, {
-        query: `${randomDiversifier} gift`,
-        per_page: 15,
-        page: randomPage,
-        orientation: 'square'
-      });
-      photos = data.photos || [];
-
-      if (photos.length > 0) {
-        const randomIndex = Math.floor(Math.random() * photos.length);
-        console.log(`🖼️ Using diversified random image (#${randomIndex}) for ${query}`);
-        return photos[randomIndex].src.medium;
-      }
+    // If we got a result, use it
+    if (photos && photos.length > 0) {
+      console.log(`🖼️ Using image for "${translatedQuery}": ${photos[0].src.medium}`);
+      return photos[0].src.medium;  // Just use the first one directly
     }
 
-    // If we got results from the initial search (and it wasn't the problematic one)
-    if (photos && photos.length > 0) {
-       // Pick a random one from the initial results too for variety
-       const randomIndex = Math.floor(Math.random() * Math.min(photos.length, 5)); // Pick from first 5
-       console.log(`🖼️ Using image (#${randomIndex}) for ${query}: ${photos[randomIndex].src.medium}`);
-       return photos[randomIndex].src.medium;
+    // Fallback to simple gift search if needed
+    console.log('🎁 Falling back to generic "gift" search');
+    const data = await makePexelsRequest(`https://api.pexels.com/v1/search`, {
+      query: 'gift present',
+      per_page: 1,  // Changed from 15 to 1
+      orientation: 'square',
+      page: Math.floor(Math.random() * 5) + 1 // Random page for variety
+    });
+    
+    photos = data.photos || [];
+    
+    if (photos.length > 0) {
+      console.log(`🖼️ Using fallback gift image`);
+      return photos[0].src.medium;  // Just use the first one
     }
 
     // If absolutely no images found after all attempts
-    console.warn(`⚠️ No images found for query "${query}" after all fallbacks.`);
-    return null; // Return null instead of throwing error
+    console.warn(`⚠️ No images found for query "${query}" after all attempts`);
+    return null;
 
-  // eslint-disable-next-line no-unused-vars
   } catch (error) {
+    console.error(`❌ Error fetching image for "${query}":`, error.message);
     return null; // Return null on error
   }
 };
