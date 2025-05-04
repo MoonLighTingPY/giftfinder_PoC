@@ -272,9 +272,19 @@ const GiftFinder = () => {
 
             {gifts.length > 0 ? (
               <div className="gift-list">
-                {gifts.map((gift) => (
-                  <div key={gift.id} className={`gift-card ${gift.ai_suggested ? 'ai-suggested' : ''}`}>
-                    {gift.ai_suggested && <div className="ai-badge">AI</div>}
+                {gifts.map(gift => (
+                  <div
+                    key={gift.id}
+                    className={`gift-card ${gift.ai_generated || gift.ai_suggested ? 'ai-suggested' : ''}`}
+                  >
+                    {/* Show AI badge if DB‐generated or just‐generated */}
+                    {(gift.ai_generated || gift.ai_suggested) && (
+                      <div className="ai-badge">AI</div>
+                    )}
+                    {/* Show NEW badge on just‐generated items */}
+                    {gift.ai_suggested && (
+                      <div className="new-badge">NEW</div>
+                    )}
                     {gift.image_url ? (
                       <div className="gift-image">
                         <img

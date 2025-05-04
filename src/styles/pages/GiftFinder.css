@@ -178,9 +178,10 @@
 
 .gift-card:hover {
   transform: translateY(-8px);
-  /* More lift */
   box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
 }
+
+
 
 .gift-image {
   position: relative;
@@ -291,20 +292,33 @@
 .ai-badge {
   position: absolute;
   top: 12px;
-  /* Adjusted position */
   right: 12px;
   background: linear-gradient(45deg, #aa1cff, #8a00d4);
-  /* Gradient badge */
-  color: white;
+  color: #fff;
   padding: 5px 10px;
-  /* Slightly larger */
   border-radius: 5px;
   font-size: 0.85rem;
-  /* Slightly larger */
   font-weight: 600;
-  /* Bolder */
-  z-index: 5;
+  z-index: 10;
+  /* Increased from 5 to 10 */
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+  /* Ensures the badge doesn't interfere with clicks */
+}
+
+/* NEW badge for freshly AI‐suggested gifts */
+.new-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: #ffe066;
+  color: #333;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  z-index: 6;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 /* Enhanced AI Generating Message */

@@ -205,14 +205,23 @@ app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
 
     // 3. Return database gifts immediately
     console.log(`Sending initial response for ${requestId} with ${dbGifts.length} DB gifts.`);
-    enrichGiftsWithImages(dbGifts.map(g => ({ ...g, ai_suggested: false })))
-      .catch(err => console.error('Async image enrichment failed:', err))
+    let enriched = dbGifts.map(g => ({ ...g, ai_suggested: false }));
+    try {
+      enriched = await enrichGiftsWithImages(enriched);
+    } catch (err) {
+      console.error('Image enrichment failed:', err);
+    }
 
     if (useAi) {
       pendingAiSuggestions.set(requestId, { status: 'generating' });
-      generateAiGifts(age, gender, interests, profession, budget, occasion, requestId)
-        .catch(() => { });
+      generateAiGifts(age, gender, interests, profession, budget, occasion, requestId).catch(() => { });
     }
+
+    res.json({
+      gifts: enriched,
+      aiStatus: useAi ? 'generating' : 'not_started',
+      requestId: useAi ? requestId : null
+    });
 
     res.json({
       gifts: dbGifts.map(g => ({ ...g, ai_suggested: false })),
@@ -299,6 +308,7 @@ async function generateAiGifts(age, gender, interests, profession, budget, occas
      `;
 
     console.log(`🧠 [${requestId}] Calling LLM for gift suggestions`);
+    console.log(`🧠 [${requestId}] pprompt:`, userPrompt);
     const formatted = formatMistralPrompt(systemPrompt, userPrompt);
     const raw = await generateCompletion(formatted, { temperature: 0.75, maxTokens: 1200 });
 
@@ -357,8 +367,8 @@ async function generateAiGifts(age, gender, interests, profession, budget, occas
       // 3e) insert gift
       const [ins] = await pool.query(
         `INSERT INTO gifts
-          (name, name_en, description, price_range, budget_min, budget_max, image_url)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+           (name, name_en, description, price_range, budget_min, budget_max, image_url, ai_generated)
+         VALUES (?,      ?,       ?,           ?,          ?,          ?,          ?,         TRUE)`,
         [gift.name, name_en, gift.description, gift.price_range, budget_min, budget_max, image_url]
       )
       const newId = ins.insertId
