@@ -1,8 +1,21 @@
 // src/pages/GiftFinder.jsx
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import axios from 'axios';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import '../styles/pages/GiftFinder.css';
+import {
+  updateFormField,
+  toggleAi,
+  setGifts,
+  setDbGifts,
+  setAiStatus,
+  setRequestId,
+  setError,
+  setIsSearching,
+  setSubmittedCriteria,
+  resetSearch
+} from '../store/slices/giftFinderSlice';
+
 
 // Define budget options
 const budgetOptions = [
@@ -27,90 +40,79 @@ const occasionOptions = [
 
 
 const GiftFinder = () => {
-  const [recipientInfo, setRecipientInfo] = useState({
-    age: '',
-    gender: '',
-    interests: '',
-    profession: '',
-    budget: 'any', // Default budget
-    occasion: 'any' // Default occasion
-  });
-  const [gifts, setGifts] = useState([]);
-  const [dbGifts, setDbGifts] = useState([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [error, setError] = useState('');
+  const dispatch = useDispatch();
+  const {
+    recipientInfo,
+    useAi,
+    gifts,
+    dbGifts,
+    aiStatus,
+    requestId,
+    error,
+    isSearching,
+    submittedCriteria
+  } = useSelector(state => state.giftFinder);
   const token = useSelector(state => state.auth.token);
-  const [aiStatus, setAiStatus] = useState(null);
-  const [requestId, setRequestId] = useState(null);
-  const [submittedCriteria, setSubmittedCriteria] = useState(null);
-  const [useAi, setUseAi] = useState(true)
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setRecipientInfo(prev => ({ ...prev, [name]: value }));
+    dispatch(updateFormField({ name, value }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setGifts([]);
-    setDbGifts([]);
-    setAiStatus(null);
-    setRequestId(null);
-    setError('');
-    setSubmittedCriteria(recipientInfo); // Store submitted criteria
-    setIsSearching(true);
+    dispatch(resetSearch());
+    dispatch(setSubmittedCriteria(recipientInfo));
+    dispatch(setIsSearching(true));
 
     try {
-      console.log('Sending request with:', recipientInfo);
-
       // Prepare data, handle budget '500+' case
       let budgetToSend = recipientInfo.budget;
       if (budgetToSend === '500+') {
-        budgetToSend = '500-99999'; // Match backend expectation
+        budgetToSend = '500-99999';
       }
+
       const payload = {
         ...recipientInfo,
         budget: budgetToSend,
         useAi
       };
 
-
       const response = await axios.post(
         `${import.meta.env.VITE_API_URL}/api/gifts/recommend`,
-        payload, // Send updated payload
+        payload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
       console.log('Received initial response:', response.data);
 
       const initialDbGifts = response.data.gifts || [];
-      setDbGifts(initialDbGifts);
-      setGifts(initialDbGifts);
+      dispatch(setDbGifts(initialDbGifts));
+      dispatch(setGifts(initialDbGifts));
 
       if (!useAi) {
-        setAiStatus('not_started')
-        setIsSearching(false)
-        return
+        dispatch(setAiStatus('not_started'));
+        dispatch(setIsSearching(false));
+        return;
       }
 
       if (response.data.aiStatus === 'generating' && response.data.requestId) {
-        setAiStatus('generating');
-        setRequestId(response.data.requestId);
+        dispatch(setAiStatus('generating'));
+        dispatch(setRequestId(response.data.requestId));
         console.log(`AI generation started with ID: ${response.data.requestId}`);
       } else {
-        setIsSearching(false);
-        setAiStatus('not_started');
+        dispatch(setIsSearching(false));
+        dispatch(setAiStatus('not_started'));
       }
 
       if (initialDbGifts.length === 0 && response.data.aiStatus !== 'generating') {
-        setError('На жаль, подарунків за вашими критеріями не знайдено. Спробуйте змінити параметри пошуку.');
+        dispatch(setError('На жаль, подарунків за вашими критеріями не знайдено. Спробуйте змінити параметри пошуку.'));
       }
-
     } catch (error) {
       console.error('Помилка отримання початкових рекомендацій:', error);
-      setError('Виникла помилка при пошуку подарунків. Будь ласка, спробуйте пізніше.');
-      setAiStatus('error');
-      setIsSearching(false);
+      dispatch(setError('Виникла помилка при пошуку подарунків. Будь ласка, спробуйте пізніше.'));
+      dispatch(setAiStatus('error'));
+      dispatch(setIsSearching(false));
     }
   };
 
@@ -132,28 +134,28 @@ const GiftFinder = () => {
 
           if (response.data.status === 'completed') {
             clearInterval(intervalId);
-            setAiStatus('completed');
+            dispatch(setAiStatus('completed'));
             const aiGeneratedGifts = response.data.gifts || [];
-            setGifts([...aiGeneratedGifts, ...dbGifts]); // AI gifts first
-            setIsSearching(false);
+            dispatch(setGifts([...aiGeneratedGifts, ...dbGifts]));
+            dispatch(setIsSearching(false));
           } else if (response.data.status === 'error') {
             clearInterval(intervalId);
-            setAiStatus('error');
-            setIsSearching(false);
+            dispatch(setAiStatus('error'));
+            dispatch(setIsSearching(false));
             console.error(`AI generation error for ${requestId}:`, response.data.error);
           } else if (response.data.status === 'generating' || response.data.status === 'pending') {
             console.log(`AI still generating for ${requestId}...`);
           } else {
             console.warn(`Unexpected AI status for ${requestId}:`, response.data.status);
             clearInterval(intervalId);
-            setAiStatus('error');
-            setIsSearching(false);
+            dispatch(setAiStatus('error'));
+            dispatch(setIsSearching(false));
           }
         } catch (error) {
           console.error(`Error polling for AI gifts (${requestId}):`, error);
-          setAiStatus('error');
+          dispatch(setAiStatus('error'));
           clearInterval(intervalId);
-          setIsSearching(false);
+          dispatch(setIsSearching(false));
         }
       }, 3000);
     }
@@ -163,7 +165,13 @@ const GiftFinder = () => {
         clearInterval(intervalId);
       }
     };
-  }, [requestId, aiStatus, token, dbGifts]);
+  }, [requestId, aiStatus, token, dbGifts, dispatch]);
+
+  // Rest of your component render code remains largely the same
+  // Just update the toggle AI handler:
+  const handleToggleAi = () => {
+    dispatch(toggleAi());
+  };
 
   return (
     <div className="container">
@@ -235,7 +243,7 @@ const GiftFinder = () => {
             <input
               type="checkbox"
               checked={useAi}
-              onChange={() => setUseAi(prev => !prev)}
+              onChange={handleToggleAi}
             />
             <span className="slider" />
           </label>
