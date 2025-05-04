@@ -340,59 +340,82 @@ async function generateAiGifts(age, gender, interests, profession, budget, occas
   }
 }
 
-app.get('/api/refresh-images', async (req, res) => {
+
+let isImageFetchingInProgress = false;
+const IMAGE_FETCH_DELAY = 500; // 2 seconds between Pexels calls
+
+// Helper function for delays (can be reused or imported)
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function fetchAndAssignImagesInBackground(force = false) {
+  if (isImageFetchingInProgress) {
+    console.log('🔄 Image fetching already in progress. Skipping new run.');
+    return;
+  }
+  isImageFetchingInProgress = true;
+  console.log(`🔄 Starting background image fetch (Force: ${force})`);
+
   try {
-    console.log('🔄 Refreshing gift images from Pexels');
-    
-    // Get parameter for force refresh
-    const forceRefresh = req.query.force === 'true';
-    
-    // Get gifts that need images
-    const query = forceRefresh 
-      ? 'SELECT id, name FROM gifts' 
-      : 'SELECT id, name FROM gifts WHERE image_url IS NULL OR image_url = ""';
-    
+    const query = force
+      ? 'SELECT id, name FROM gifts WHERE name IS NOT NULL AND name != ""' // Ensure name exists
+      : 'SELECT id, name FROM gifts WHERE (image_url IS NULL OR image_url = "") AND name IS NOT NULL AND name != ""';
+
     const [giftsToUpdate] = await pool.query(query);
-    
+
     if (giftsToUpdate.length === 0) {
-      return res.json({ 
-        message: 'All gifts already have images',
-        refreshed: 0,
-        total: 0
-      });
+      console.log('✅ No gifts require image fetching.');
+      return;
     }
-    
-    console.log(`Found ${giftsToUpdate.length} gifts to update`);
-    
-    // For each gift, fetch a new image from Pexels
+
+    console.log(`🔍 Found ${giftsToUpdate.length} gifts to fetch images for.`);
     let updatedCount = 0;
-    
+    let failedCount = 0;
+
     for (const gift of giftsToUpdate) {
       try {
-        const imageUrl = await getImageUrl(gift.name);
-        
-        // Update the gift with the new image URL
-        await pool.query(
-          'UPDATE gifts SET image_url = ? WHERE id = ?',
-          [imageUrl, gift.id]
-        );
-        
-        updatedCount++;
-        console.log(`✅ Updated image for "${gift.name}": ${imageUrl}`);
-      } catch (error) {
-        console.error(`❌ Failed to update image for "${gift.name}":`, error);
+        console.log(`⏳ Fetching image for "${gift.name}"...`);
+        const imageUrl = await getImageUrl(gift.name); // Uses the updated service with retry
+
+        if (imageUrl) {
+          await pool.query(
+            'UPDATE gifts SET image_url = ? WHERE id = ?',
+            [imageUrl, gift.id]
+          );
+          updatedCount++;
+          console.log(`✅ Assigned image for "${gift.name}"`);
+        } else {
+          failedCount++;
+          console.warn(`⚠️ Could not get image URL for "${gift.name}" after retries.`);
+        }
+      } catch (error) { // Catch errors during DB update or unexpected getImageUrl errors
+        failedCount++;
+        console.error(`❌ Error processing image for "${gift.name}":`, error.message);
+      } finally {
+        // IMPORTANT: Delay *between* processing each gift to respect rate limits
+        await delay(IMAGE_FETCH_DELAY);
       }
     }
-    
-    res.json({ 
-      message: `Successfully refreshed ${updatedCount} out of ${giftsToUpdate.length} gift images`,
-      refreshed: updatedCount,
-      total: giftsToUpdate.length
-    });
+    console.log(`✅ Background image fetch complete. Updated: ${updatedCount}, Failed/Skipped: ${failedCount}`);
+
   } catch (error) {
-    console.error('Error refreshing images:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('❌ Fatal error during background image fetch:', error);
+  } finally {
+    isImageFetchingInProgress = false; // Ensure flag is reset
+    console.log('🔄 Background image fetch process finished.');
   }
+}
+
+app.get('/api/refresh-images', authenticateToken, async (req, res) => { // Added auth middleware
+  const forceRefresh = req.query.force === 'true';
+
+  if (isImageFetchingInProgress) {
+    return res.status(409).json({ message: 'Image refresh already in progress. Please wait.' });
+  }
+
+  // Start the background task but don't wait for it
+  fetchAndAssignImagesInBackground(forceRefresh);
+
+  res.json({ message: `Image refresh started in background${forceRefresh ? ' (forcing all images)' : ''}.` });
 });
 
 // --- Analyze User Input Helper (Updated) ---

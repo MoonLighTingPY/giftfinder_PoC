@@ -5,133 +5,137 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Use the API key
 const pexelsApiKey = process.env.VITE_PEXELS_API_KEY;
-
-// Cache for images we've already searched for
 const imageCache = new Map();
 
+// Helper function for delays
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Helper to make cancellable Pexels requests with retry
+const makePexelsRequest = async (url, params, attempt = 1) => {
+  const MAX_RETRIES = 2;
+  const RETRY_DELAY = 5000; // 2.5 seconds delay on retry
+
+  try {
+    const response = await axios.get(url, {
+      params,
+      headers: { Authorization: pexelsApiKey }
+    });
+    return response.data; // Return data on success
+  } catch (error) {
+    // Check if it's a rate limit error (429) and we haven't exceeded retries
+    if (error.response?.status === 429 && attempt < MAX_RETRIES) {
+      console.warn(`⚠️ Pexels Rate Limit Hit (Attempt ${attempt}). Retrying after ${RETRY_DELAY}ms...`);
+      await delay(RETRY_DELAY);
+      return makePexelsRequest(url, params, attempt + 1); // Retry
+    } else {
+      // For other errors or max retries exceeded, re-throw
+      console.error(`❌ Pexels API Error (${error.response?.status || 'Network Error'}): ${error.message}`);
+      throw error; // Re-throw the original error or a custom one
+    }
+  }
+};
+
+
 export const searchImages = async (query, perPage = 1) => {
-  // Check if we've already searched for this query
   if (imageCache.has(query)) {
     console.log(`🔄 Using cached image for "${query}"`);
     return imageCache.get(query);
   }
-  
-  console.log(`🔍 Searching Pexels for: "${query}" with key: ${pexelsApiKey.substring(0, 5)}...`);
-  
+
+  console.log(`🔍 Searching Pexels for: "${query}"`);
+
   try {
     // First try with the exact query
-    const response = await axios.get(`https://api.pexels.com/v1/search`, {
-      params: {
-        query,
-        per_page: perPage,
-        orientation: 'square'
-      },
-      headers: {
-        Authorization: pexelsApiKey
-      }
+    let data = await makePexelsRequest(`https://api.pexels.com/v1/search`, {
+      query,
+      per_page: perPage,
+      orientation: 'square'
     });
-    
-    if (response.data.photos && response.data.photos.length > 0) {
-      console.log(`✅ Found ${response.data.photos.length} images for "${query}"`);
-      // Cache the results
-      imageCache.set(query, response.data.photos);
-      return response.data.photos;
+
+    if (data.photos && data.photos.length > 0) {
+      console.log(`✅ Found ${data.photos.length} images for "${query}"`);
+      imageCache.set(query, data.photos);
+      return data.photos;
     }
-    
+
     // If no results, try with first word only
     if (query.includes(' ')) {
       const mainKeyword = query.split(' ')[0];
       console.log(`🔎 Trying with first word: "${mainKeyword}"`);
-      
-      const fallbackResponse = await axios.get(`https://api.pexels.com/v1/search`, {
-        params: {
-          query: mainKeyword,
-          per_page: perPage,
-          orientation: 'square'
-        },
-        headers: {
-          Authorization: pexelsApiKey
-        }
-      });
-      
-      if (fallbackResponse.data.photos && fallbackResponse.data.photos.length > 0) {
-        console.log(`✅ Found ${fallbackResponse.data.photos.length} images for "${mainKeyword}"`);
-        // Cache the results
-        imageCache.set(query, fallbackResponse.data.photos);
-        return fallbackResponse.data.photos;
-      }
-    }
-    
-    // If still no results, search for "gift"
-    console.log('🎁 Falling back to generic "gift" search');
-    const giftResponse = await axios.get(`https://api.pexels.com/v1/search`, {
-      params: {
-        query: 'gift present',
+      data = await makePexelsRequest(`https://api.pexels.com/v1/search`, {
+        query: mainKeyword,
         per_page: perPage,
         orientation: 'square'
-      },
-      headers: {
-        Authorization: pexelsApiKey
+      });
+
+      if (data.photos && data.photos.length > 0) {
+        console.log(`✅ Found ${data.photos.length} images for "${mainKeyword}"`);
+        imageCache.set(query, data.photos); // Cache under original query
+        return data.photos;
       }
+    }
+
+    // If still no results, search for "gift"
+    console.log('🎁 Falling back to generic "gift" search');
+    data = await makePexelsRequest(`https://api.pexels.com/v1/search`, {
+      query: 'gift present', // Keep generic query simple
+      per_page: perPage,
+      orientation: 'square'
     });
-    
-    // Cache even generic results
-    const fallbackResults = giftResponse.data.photos || [];
-    imageCache.set(query, fallbackResults);
+
+    const fallbackResults = data.photos || [];
+    imageCache.set(query, fallbackResults); // Cache fallback under original query
     return fallbackResults;
+
+  // eslint-disable-next-line no-unused-vars
   } catch (error) {
-    console.error('❌ Error fetching images from Pexels:', error);
-    return [];
+    return []; // Return empty array on failure
   }
 };
 
 export const getImageUrl = async (query) => {
   try {
-    // Create a more unique search term by adding a random word from this list
     const diversifiers = ["colorful", "beautiful", "modern", "elegant", "creative", "unique", "special"];
     const randomDiversifier = diversifiers[Math.floor(Math.random() * diversifiers.length)];
-    
-    // Try to get images for the original query
-    let photos = await searchImages(query);
-    
-    // If nothing found and it's falling back to generic "gift" search,
-    // add a random page number and random diversifier to get different results
-    if (!photos.length || photos[0].src.medium.includes("16116703")) {
+
+    let photos = await searchImages(query, 15); // Fetch more images initially
+
+    // Check if fallback was used or specific problematic image appeared
+    const isFallback = !photos.length || (photos[0]?.src?.medium?.includes("16116703"));
+
+    if (isFallback) {
       console.log(`🎨 Diversifying search with "${randomDiversifier} gift"`);
-      const randomPage = Math.floor(Math.random() * 5) + 1; // Get a random page between 1-5
-      
-      const diverseResponse = await axios.get(`https://api.pexels.com/v1/search`, {
-        params: {
-          query: `${randomDiversifier} gift`,
-          per_page: 15,
-          page: randomPage,
-          orientation: 'square'
-        },
-        headers: {
-          Authorization: pexelsApiKey
-        }
+      const randomPage = Math.floor(Math.random() * 5) + 1;
+      const data = await makePexelsRequest(`https://api.pexels.com/v1/search`, {
+        query: `${randomDiversifier} gift`,
+        per_page: 15,
+        page: randomPage,
+        orientation: 'square'
       });
-      
-      photos = diverseResponse.data.photos || [];
-      
-      // Pick a random photo from the results instead of always the first one
+      photos = data.photos || [];
+
       if (photos.length > 0) {
         const randomIndex = Math.floor(Math.random() * photos.length);
         console.log(`🖼️ Using diversified random image (#${randomIndex}) for ${query}`);
         return photos[randomIndex].src.medium;
       }
     }
-    
+
+    // If we got results from the initial search (and it wasn't the problematic one)
     if (photos && photos.length > 0) {
-      console.log(`🖼️ Using image for ${query}: ${photos[0].src.medium}`);
-      return photos[0].src.medium;
+       // Pick a random one from the initial results too for variety
+       const randomIndex = Math.floor(Math.random() * Math.min(photos.length, 5)); // Pick from first 5
+       console.log(`🖼️ Using image (#${randomIndex}) for ${query}: ${photos[randomIndex].src.medium}`);
+       return photos[randomIndex].src.medium;
     }
-    
-    throw new Error('No images found');
+
+    // If absolutely no images found after all attempts
+    console.warn(`⚠️ No images found for query "${query}" after all fallbacks.`);
+    return null; // Return null instead of throwing error
+
+  // eslint-disable-next-line no-unused-vars
   } catch (error) {
-    console.error(`❌ Failed to get image for ${query}:`, error);
-    throw error;
+    return null; // Return null on error
   }
 };
