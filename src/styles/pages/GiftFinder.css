@@ -26,8 +26,20 @@
   border: 1px solid #e0e0e0; /* Subtle border */
 }
 
-.form-group {
-  margin-bottom: 1.8rem; /* Increased spacing */
+.form-row {
+  display: flex;
+  gap: 1.5rem; /* Adjust gap between fields */
+  margin-bottom: 1.8rem; /* Keep bottom margin for the row */
+}
+
+.form-group-half {
+  flex: 1; /* Each group takes half the space */
+  margin-bottom: 0; /* Remove bottom margin from individual groups in the row */
+}
+/* End new styles */
+
+.form-group { /* Keep styles for full-width groups */
+  margin-bottom: 1.8rem;
 }
 
 .form-group label {
@@ -327,4 +339,18 @@
   .gift-info h3 { font-size: 1.05rem; }
   .gift-info p { font-size: 0.9rem; }
   .ai-generating-message, .initial-searching-message { font-size: 1rem; padding: 0.8rem 1rem; }
+}
+
+@media (max-width: 576px) { /* Adjust breakpoint as needed */
+  .form-row {
+    flex-direction: column; /* Stack fields vertically on small screens */
+    gap: 0; /* Remove gap when stacked */
+    margin-bottom: 0; /* Remove row bottom margin */
+  }
+  .form-group-half {
+     margin-bottom: 1.8rem; /* Add back bottom margin when stacked */
+  }
+  .form-group-half:last-child {
+     margin-bottom: 1.8rem; /* Ensure last item also has margin before next full-width group */
+  }
 }

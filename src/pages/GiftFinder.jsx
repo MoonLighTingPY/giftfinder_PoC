@@ -128,32 +128,35 @@ const GiftFinder = () => {
       <h1>Пошук Подарунків</h1>
 
       <form onSubmit={handleSubmit} className="gift-form">
-        {/* Form inputs remain the same */}
-         <div className="form-group">
-          <label>Вік:</label>
-          <input
-            type="number"
-            name="age"
-            value={recipientInfo.age}
-            onChange={handleChange}
-            required
-          />
-        </div>
+        {/* Wrap Age and Gender in a row */}
+        <div className="form-row">
+          <div className="form-group form-group-half"> {/* Add class for half width */}
+            <label>Вік:</label>
+            <input
+              type="number"
+              name="age"
+              value={recipientInfo.age}
+              onChange={handleChange}
+              min="1" // Optional: Add min age
+              required
+            />
+          </div>
 
-        <div className="form-group">
-          <label>Стать:</label>
-          <select
-            name="gender"
-            value={recipientInfo.gender}
-            onChange={handleChange}
-            required
-          >
-            <option value="">Оберіть стать</option>
-            <option value="male">Чоловіча</option>
-            <option value="female">Жіноча</option>
-            <option value="other">Інша</option>
-          </select>
-        </div>
+          <div className="form-group form-group-half"> {/* Add class for half width */}
+            <label>Стать:</label>
+            <select
+              name="gender"
+              value={recipientInfo.gender}
+              onChange={handleChange}
+              required
+            >
+              <option value="">Оберіть стать</option>
+              <option value="male">Чоловіча</option>
+              <option value="female">Жіноча</option>
+              {/* Removed 'Other' option */}
+            </select>
+          </div>
+        </div> {/* End form-row */}
 
         <div className="form-group">
           <label>Інтереси/Хобі:</label>
@@ -177,7 +180,6 @@ const GiftFinder = () => {
         </div>
 
         <button type="submit" disabled={isSearching}>
-          {/* Show loading only during the initial request */}
           {isSearching ? 'Пошук...' : 'Знайти подарунки'}
         </button>
       </form>
