@@ -275,7 +275,8 @@ const GiftFinder = () => {
                 {gifts.map(gift => (
                   <div
                     key={gift.id}
-                    className={`gift-card ${gift.ai_generated || gift.ai_suggested ? 'ai-suggested' : ''}`}
+                    className={`gift-card ${(gift.ai_generated || gift.ai_suggested) ? 'ai-suggested' : ''
+                      } ${gift.ai_suggested ? 'fresh-ai-suggestion' : ''}`}
                   >
                     {/* Show AI badge if DB‐generated or just‐generated */}
                     {(gift.ai_generated || gift.ai_suggested) && (

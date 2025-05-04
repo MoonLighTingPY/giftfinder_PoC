@@ -285,8 +285,12 @@
 
 /* --- AI Badge & Status Messages --- */
 .gift-card.ai-suggested {
-  border: 2px solid #aa1cff;
   position: relative;
+  /* Keep this for badge positioning */
+}
+
+.gift-card.fresh-ai-suggestion {
+  border: 2px solid #aa1cff;
 }
 
 .ai-badge {
