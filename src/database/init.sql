@@ -328,5 +328,4 @@ CREATE INDEX idx_gift_tags_tag_id ON gift_tags(tag_id);
 
 -- Create sample users
 INSERT INTO users (username, email, password_hash) VALUES
-('admin', 'admin@giftfinder.com', '$2b$10$X4jYkUQf3GQydJ4QXOOJEetK9FIuU1EH4F.HEjQ3jGjk0DcCHB04C'), -- Password: admin123
 ('test', 'test@example.com', '$2b$10$QOW9yAiHKsNHDt65DTYFYuK.QIbFn1jM8kD7Q/4CtplTcQM00.e6C'); -- Password: password123
