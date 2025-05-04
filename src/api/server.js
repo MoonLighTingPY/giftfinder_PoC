@@ -342,7 +342,7 @@ async function generateAiGifts(age, gender, interests, profession, budget, occas
 
 
 let isImageFetchingInProgress = false;
-const IMAGE_FETCH_DELAY = 500; // 2 seconds between Pexels calls
+const IMAGE_FETCH_DELAY = 500; // delay between Pexels calls
 
 // Helper function for delays (can be reused or imported)
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));

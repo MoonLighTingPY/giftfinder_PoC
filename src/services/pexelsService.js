@@ -13,8 +13,8 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Helper to make cancellable Pexels requests with retry
 const makePexelsRequest = async (url, params, attempt = 1) => {
-  const MAX_RETRIES = 2;
-  const RETRY_DELAY = 5000; // 2.5 seconds delay on retry
+  const MAX_RETRIES = 5;
+  const RETRY_DELAY = 20000; // 2.5 seconds delay on retry
 
   try {
     const response = await axios.get(url, {
