@@ -210,3 +210,20 @@
     font-weight: bold;
     z-index: 5;
   }
+
+  .ai-generating-message {
+    text-align: center;
+    margin: 1rem 0;
+    padding: 0.75rem;
+    background-color: #f0f7ff;
+    border-radius: 4px;
+    font-style: italic;
+    color: #646cff;
+    animation: pulse 1.5s infinite;
+  }
+  
+  @keyframes pulse {
+    0% { opacity: 0.7; }
+    50% { opacity: 1; }
+    100% { opacity: 0.7; }
+  }
