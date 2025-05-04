@@ -3,51 +3,71 @@
 /* --- General Container --- */
 .container {
   max-width: 1200px;
-  margin: 1rem auto 3rem; /* Adjust margin */
-  padding: 1rem 2rem; /* Add horizontal padding */
+  margin: 1rem auto 3rem;
+  /* Adjust margin */
+  padding: 1rem 2rem;
+  /* Add horizontal padding */
 }
 
 .container h1 {
   text-align: center;
-  margin-bottom: 2.5rem; /* Increased margin */
-  color: #2c3e50; /* Darker heading color */
+  margin-bottom: 2.5rem;
+  /* Increased margin */
+  color: #2c3e50;
+  /* Darker heading color */
   font-weight: 700;
   letter-spacing: -0.5px;
 }
 
 /* --- Gift Form Styling --- */
 .gift-form {
-  max-width: 700px; /* Slightly narrower */
-  margin: 0 auto 4rem; /* Increased bottom margin */
+  max-width: 700px;
+  /* Slightly narrower */
+  margin: 0 auto 4rem;
+  /* Increased bottom margin */
   background: #ffffff;
-  border-radius: 12px; /* More rounded corners */
-  padding: 2.5rem 3rem; /* Increased padding */
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08); /* Softer, larger shadow */
-  border: 1px solid #e0e0e0; /* Subtle border */
+  border-radius: 12px;
+  /* More rounded corners */
+  padding: 2.5rem 3rem;
+  /* Increased padding */
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+  /* Softer, larger shadow */
+  border: 1px solid #e0e0e0;
+  /* Subtle border */
 }
 
 .form-row {
   display: flex;
-  flex-wrap: wrap; /* Allow wrapping on smaller screens if needed */
-  gap: 1.5rem; /* Space between columns */
-  margin-bottom: 1.8rem; /* Spacing below the row */
+  flex-wrap: wrap;
+  /* Allow wrapping on smaller screens if needed */
+  gap: 1.5rem;
+  /* Space between columns */
+  margin-bottom: 1.8rem;
+  /* Spacing below the row */
 }
 
 .form-group-half {
-  flex: 1; /* Each group tries to take equal space */
-  min-width: 200px; /* Minimum width before wrapping */
-  margin-bottom: 0; /* Remove default margin from groups inside a row */
+  flex: 1;
+  /* Each group tries to take equal space */
+  min-width: 200px;
+  /* Minimum width before wrapping */
+  margin-bottom: 0;
+  /* Remove default margin from groups inside a row */
 }
 
-.form-group { /* Styles for full-width groups remain */
+.form-group {
+  /* Styles for full-width groups remain */
   margin-bottom: 1.8rem;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 0.6rem; /* Increased spacing */
-  font-weight: 600; /* Bolder labels */
-  color: #34495e; /* Slightly different color */
+  margin-bottom: 0.6rem;
+  /* Increased spacing */
+  font-weight: 600;
+  /* Bolder labels */
+  color: #34495e;
+  /* Slightly different color */
   font-size: 0.95rem;
 }
 
@@ -55,16 +75,22 @@
 .form-group select,
 .form-group textarea {
   width: 100%;
-  padding: 0.85rem 1rem; /* Adjusted padding */
-  border: 1px solid #ced4da; /* Lighter border */
-  border-radius: 6px; /* Slightly more rounded */
+  padding: 0.85rem 1rem;
+  /* Adjusted padding */
+  border: 1px solid #ced4da;
+  /* Lighter border */
+  border-radius: 6px;
+  /* Slightly more rounded */
   font-size: 1rem;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease; /* Added box-shadow transition */
-  background-color: #f8f9fa; /* Very light background */
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  /* Added box-shadow transition */
+  background-color: #f8f9fa;
+  /* Very light background */
 }
 
 .form-group textarea {
-  min-height: 120px; /* Taller textarea */
+  min-height: 120px;
+  /* Taller textarea */
   resize: vertical;
 }
 
@@ -73,33 +99,41 @@
 .form-group textarea:focus {
   border-color: #646cff;
   outline: none;
-  box-shadow: 0 0 0 3px rgba(100, 108, 255, 0.15); /* Focus ring */
+  box-shadow: 0 0 0 3px rgba(100, 108, 255, 0.15);
+  /* Focus ring */
   background-color: #fff;
 }
 
 .gift-form button {
   display: block;
   width: 100%;
-  background: linear-gradient(45deg, #646cff, #aa1cff); /* Gradient background */
+  background: linear-gradient(45deg, #646cff, #aa1cff);
+  /* Gradient background */
   color: white;
   border: none;
   border-radius: 6px;
-  padding: 0.9rem 1rem; /* Increased padding */
-  font-size: 1.1rem; /* Larger font */
+  padding: 0.9rem 1rem;
+  /* Increased padding */
+  font-size: 1.1rem;
+  /* Larger font */
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease; /* Smooth transition for hover */
+  transition: all 0.3s ease;
+  /* Smooth transition for hover */
   box-shadow: 0 4px 10px rgba(100, 108, 255, 0.2);
 }
 
 .gift-form button:hover {
-  background: linear-gradient(45deg, #535bf2, #990bdb); /* Darker gradient */
+  background: linear-gradient(45deg, #535bf2, #990bdb);
+  /* Darker gradient */
   box-shadow: 0 6px 12px rgba(100, 108, 255, 0.3);
-  transform: translateY(-2px); /* Slight lift on hover */
+  transform: translateY(-2px);
+  /* Slight lift on hover */
 }
 
 .gift-form button:disabled {
-  background: #c5c8d3; /* Greyed out */
+  background: #c5c8d3;
+  /* Greyed out */
   box-shadow: none;
   transform: none;
   cursor: not-allowed;
@@ -107,45 +141,55 @@
 
 /* --- Gifts Container & List --- */
 .gifts-container {
-  margin-top: 4rem; /* More space above gifts */
+  margin-top: 4rem;
+  /* More space above gifts */
 }
 
 .gifts-container h2 {
   text-align: center;
-  margin-bottom: 2.5rem; /* Increased margin */
+  margin-bottom: 2.5rem;
+  /* Increased margin */
   color: #2c3e50;
   font-weight: 700;
 }
 
 .gift-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); /* Responsive columns */
-  gap: 2.5rem; /* Increased gap */
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  /* Responsive columns */
+  gap: 2.5rem;
+  /* Increased gap */
 }
 
 /* --- Gift Card Styling --- */
 .gift-card {
   background: #ffffff;
-  border-radius: 10px; /* More rounded */
+  border-radius: 10px;
+  /* More rounded */
   overflow: hidden;
-  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.07); /* Refined shadow */
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.07);
+  /* Refined shadow */
   transition: transform 0.3s ease, box-shadow 0.3s ease;
   display: flex;
   flex-direction: column;
-  border: 1px solid #eee; /* Subtle border */
+  border: 1px solid #eee;
+  /* Subtle border */
 }
 
 .gift-card:hover {
-  transform: translateY(-8px); /* More lift */
+  transform: translateY(-8px);
+  /* More lift */
   box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
 }
 
 .gift-image {
   position: relative;
   width: 100%;
-  padding-top: 75%; /* Aspect ratio 4:3 */
+  padding-top: 75%;
+  /* Aspect ratio 4:3 */
   overflow: hidden;
-  background-color: #e9ecef; /* Light grey background for loading/error */
+  background-color: #e9ecef;
+  /* Light grey background for loading/error */
 }
 
 .gift-image img {
@@ -156,11 +200,13 @@
   height: 100%;
   object-fit: cover;
   transition: transform 0.4s ease;
-  display: block; /* Ensure it's a block element */
+  display: block;
+  /* Ensure it's a block element */
 }
 
 .gift-card:hover .gift-image img {
-  transform: scale(1.08); /* Slightly larger zoom */
+  transform: scale(1.08);
+  /* Slightly larger zoom */
 }
 
 /* Placeholder for missing images */
@@ -178,17 +224,21 @@
   font-size: 0.9rem;
   text-align: center;
   padding: 1rem;
-  opacity: 0; /* Hide by default */
+  opacity: 0;
+  /* Hide by default */
   transition: opacity 0.3s ease;
 }
+
 .no-image span,
 .no-image-placeholder span {
   text-align: center;
   padding: 1rem;
 }
+
 .gift-image.no-image .no-image-text {
   opacity: 1;
 }
+
 .gift-image.image-error .no-image-text {
   opacity: 1;
 }
@@ -202,26 +252,34 @@
 
 .gift-info h3 {
   margin-top: 0;
-  margin-bottom: 0.7rem; /* More space below title */
-  color: #343a40; /* Darker title */
+  margin-bottom: 0.7rem;
+  /* More space below title */
+  color: #343a40;
+  /* Darker title */
   font-size: 1.15rem;
   font-weight: 600;
 }
 
 .gift-info p {
-  color: #495057; /* Slightly darker text */
-  margin-bottom: 1.2rem; /* More space below description */
-  flex-grow: 1; /* Push price to bottom */
+  color: #495057;
+  /* Slightly darker text */
+  margin-bottom: 1.2rem;
+  /* More space below description */
+  flex-grow: 1;
+  /* Push price to bottom */
   line-height: 1.6;
   font-size: 0.95rem;
 }
 
 .gift-info .price-range {
-  font-weight: 700; /* Bolder price */
+  font-weight: 700;
+  /* Bolder price */
   color: #646cff;
-  align-self: flex-start; /* Keep at start */
+  align-self: flex-start;
+  /* Keep at start */
   font-size: 1.05rem;
-  margin-top: auto; /* Push to bottom */
+  margin-top: auto;
+  /* Push to bottom */
 }
 
 /* --- AI Badge & Status Messages --- */
@@ -232,36 +290,47 @@
 
 .ai-badge {
   position: absolute;
-  top: 12px; /* Adjusted position */
+  top: 12px;
+  /* Adjusted position */
   right: 12px;
-  background: linear-gradient(45deg, #aa1cff, #8a00d4); /* Gradient badge */
+  background: linear-gradient(45deg, #aa1cff, #8a00d4);
+  /* Gradient badge */
   color: white;
-  padding: 5px 10px; /* Slightly larger */
+  padding: 5px 10px;
+  /* Slightly larger */
   border-radius: 5px;
-  font-size: 0.85rem; /* Slightly larger */
-  font-weight: 600; /* Bolder */
+  font-size: 0.85rem;
+  /* Slightly larger */
+  font-weight: 600;
+  /* Bolder */
   z-index: 5;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 /* Enhanced AI Generating Message */
-.ai-generating-message { /* Renamed from initial-searching-message for clarity */
+.ai-generating-message {
+  /* Renamed from initial-searching-message for clarity */
   text-align: center;
   margin: 2rem auto;
   padding: 1rem 1.5rem;
   background-color: #eef2ff;
-  border-left: 4px solid #646cff; /* Accent border */
+  border-left: 4px solid #646cff;
+  /* Accent border */
   border-radius: 6px;
-  font-style: normal; /* Remove italic */
-  color: #434c9c; /* Darker blue text */
+  font-style: normal;
+  /* Remove italic */
+  color: #434c9c;
+  /* Darker blue text */
   max-width: 450px;
   box-shadow: 0 2px 8px rgba(100, 108, 255, 0.1);
   animation: pulse 2s infinite ease-in-out;
-  display: flex; /* Align icon and text */
+  display: flex;
+  /* Align icon and text */
   align-items: center;
   justify-content: center;
   gap: 0.7rem;
 }
+
 /* Add an icon (requires a font library like FontAwesome or an SVG) */
 /* .ai-generating-message::before { content: '\f2dc'; font-family: 'Font Awesome 5 Free'; font-weight: 900; margin-right: 0.5rem; } */
 
@@ -273,10 +342,13 @@
 /* Enhanced Initial Searching Message Style */
 .initial-searching-message {
   text-align: center;
-  margin: 4rem auto; /* More vertical margin */
+  margin: 4rem auto;
+  /* More vertical margin */
   padding: 1.5rem;
-  font-size: 1.15rem; /* Slightly larger */
-  color: #495057; /* Darker grey */
+  font-size: 1.15rem;
+  /* Slightly larger */
+  color: #495057;
+  /* Darker grey */
   font-weight: 500;
   display: flex;
   justify-content: center;
@@ -288,9 +360,11 @@
 .initial-searching-message::before {
   content: '';
   display: inline-block;
-  width: 24px; /* Larger spinner */
+  width: 24px;
+  /* Larger spinner */
   height: 24px;
-  border: 4px solid rgba(100, 108, 255, 0.2); /* Lighter border */
+  border: 4px solid rgba(100, 108, 255, 0.2);
+  /* Lighter border */
   border-radius: 50%;
   border-top-color: #646cff;
   animation: spin 1s linear infinite;
@@ -298,20 +372,24 @@
 
 /* --- Other Styles --- */
 .error-message {
-  background-color: #fff0f1; /* Lighter red */
-  color: #d94854; /* Darker red text */
+  background-color: #fff0f1;
+  /* Lighter red */
+  color: #d94854;
+  /* Darker red text */
   padding: 1rem 1.5rem;
   border-radius: 6px;
   margin: 1.5rem auto;
   max-width: 700px;
   text-align: center;
-  border: 1px solid #ffccd0; /* Subtle border */
+  border: 1px solid #ffccd0;
+  /* Subtle border */
   font-weight: 500;
 }
 
 .recommendation-note {
   text-align: center;
-  color: #6c757d; /* Muted grey */
+  color: #6c757d;
+  /* Muted grey */
   margin-bottom: 2.5rem;
   font-style: italic;
   font-size: 0.95rem;
@@ -322,44 +400,109 @@
 
 /* --- Animations --- */
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 0.85; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.01); }
+
+  0%,
+  100% {
+    opacity: 0.85;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.01);
+  }
 }
 
 /* --- Responsiveness --- */
 @media (max-width: 768px) {
-  .container { padding: 1rem; }
-  .gift-form { padding: 2rem 1.5rem; }
-  .gift-list { gap: 1.5rem; }
-  .gift-card { border-radius: 8px; }
-  .gift-image { padding-top: 100%; } /* Square images on smaller screens */
+  .container {
+    padding: 1rem;
+  }
+
+  .gift-form {
+    padding: 2rem 1.5rem;
+  }
+
+  .gift-list {
+    gap: 1.5rem;
+  }
+
+  .gift-card {
+    border-radius: 8px;
+  }
+
+  .gift-image {
+    padding-top: 100%;
+  }
+
+  /* Square images on smaller screens */
 }
 
 @media (max-width: 480px) {
-  .container h1 { font-size: 1.8rem; margin-bottom: 2rem; }
-  .gift-form { padding: 1.5rem; }
-  .gift-form button { font-size: 1rem; padding: 0.8rem; }
-  .gift-list { grid-template-columns: 1fr; gap: 1.5rem; } /* Single column */
-  .gift-info { padding: 1rem; }
-  .gift-info h3 { font-size: 1.05rem; }
-  .gift-info p { font-size: 0.9rem; }
-  .ai-generating-message, .initial-searching-message { font-size: 1rem; padding: 0.8rem 1rem; }
+  .container h1 {
+    font-size: 1.8rem;
+    margin-bottom: 2rem;
+  }
+
+  .gift-form {
+    padding: 1.5rem;
+  }
+
+  .gift-form button {
+    font-size: 1rem;
+    padding: 0.8rem;
+  }
+
+  .gift-list {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  /* Single column */
+  .gift-info {
+    padding: 1rem;
+  }
+
+  .gift-info h3 {
+    font-size: 1.05rem;
+  }
+
+  .gift-info p {
+    font-size: 0.9rem;
+  }
+
+  .ai-generating-message,
+  .initial-searching-message {
+    font-size: 1rem;
+    padding: 0.8rem 1rem;
+  }
 }
 
-@media (max-width: 576px) { /* Adjust breakpoint as needed */
+@media (max-width: 576px) {
+
+  /* Adjust breakpoint as needed */
   .form-row {
-    flex-direction: column; /* Stack fields vertically on small screens */
-    gap: 0; /* Remove gap when stacked */
-    margin-bottom: 0; /* Remove row bottom margin */
+    flex-direction: column;
+    /* Stack fields vertically on small screens */
+    gap: 0;
+    /* Remove gap when stacked */
+    margin-bottom: 0;
+    /* Remove row bottom margin */
   }
+
   .form-group-half {
-     margin-bottom: 1.8rem; /* Add back bottom margin when stacked */
+    margin-bottom: 1.8rem;
+    /* Add back bottom margin when stacked */
   }
+
   .form-group-half:last-child {
-     margin-bottom: 1.8rem; /* Ensure last item also has margin before next full-width group */
+    margin-bottom: 1.8rem;
+    /* Ensure last item also has margin before next full-width group */
   }
 }

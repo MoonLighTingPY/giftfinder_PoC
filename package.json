@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "preview": "vite preview",
     "server": "node src/api/server.js",
     "dev:full": "concurrently \"npm run dev\" \"npm run server\""

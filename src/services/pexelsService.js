@@ -12,7 +12,7 @@ const translationCache = new Map();
 
 
 // Helper function to translate Ukrainian to English
-async function translateToEnglish(text) {
+export async function translateToEnglish(text) {
   // Check cache first
   if (translationCache.has(text)) {
     console.log(`🔄 Using cached translation for "${text}"`);
@@ -30,7 +30,7 @@ async function translateToEnglish(text) {
     return translatedText;
   } catch (error) {
     console.error(`❌ Translation error for "${text}":`, error.message);
-    return text; // Return original text on error
+    return null; // Return null on error
   }
 }
 
@@ -82,7 +82,14 @@ export const getImageUrl = async (query, isEnglish) => {
   try {
     // Translate the query from Ukrainian to English
     if (!isEnglish) {
-      query = await translateToEnglish(query);
+      const translated = await translateToEnglish(query);
+      // Only use the translated value if translation succeeded
+      if (translated) {
+        query = translated;
+        console.log(`🔍 Using translated query: "${query}"`);
+      } else {
+        console.log(`⚠️ Translation failed, using original query: "${query}"`);
+      }
     } else {
       console.log(`🔍 Searching for image with query: "${query}"`);
     }

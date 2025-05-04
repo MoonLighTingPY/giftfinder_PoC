@@ -65,7 +65,7 @@ const GiftFinder = () => {
       // Prepare data, handle budget '500+' case
       let budgetToSend = recipientInfo.budget;
       if (budgetToSend === '500+') {
-          budgetToSend = '500-99999'; // Match backend expectation
+        budgetToSend = '500-99999'; // Match backend expectation
       }
       const payload = { ...recipientInfo, budget: budgetToSend };
 
@@ -92,7 +92,7 @@ const GiftFinder = () => {
       }
 
       if (initialDbGifts.length === 0 && response.data.aiStatus !== 'generating') {
-         setError('На жаль, подарунків за вашими критеріями не знайдено. Спробуйте змінити параметри пошуку.');
+        setError('На жаль, подарунків за вашими критеріями не знайдено. Спробуйте змінити параметри пошуку.');
       }
 
     } catch (error) {
@@ -133,10 +133,10 @@ const GiftFinder = () => {
           } else if (response.data.status === 'generating' || response.data.status === 'pending') {
             console.log(`AI still generating for ${requestId}...`);
           } else {
-             console.warn(`Unexpected AI status for ${requestId}:`, response.data.status);
-             clearInterval(intervalId);
-             setAiStatus('error');
-             setIsSearching(false);
+            console.warn(`Unexpected AI status for ${requestId}:`, response.data.status);
+            clearInterval(intervalId);
+            setAiStatus('error');
+            setIsSearching(false);
           }
         } catch (error) {
           console.error(`Error polling for AI gifts (${requestId}):`, error);
@@ -170,7 +170,7 @@ const GiftFinder = () => {
           </div>
           <div className="form-group form-group-half">
             <label>Стать:</label>
-            <select name="gender" value={recipientInfo.gender} onChange={handleChange} required>
+            <select name="gender" value={recipientInfo.gender} onChange={handleChange} required defaultValue="Чоловіча">
               <option value="">Оберіть стать</option>
               <option value="male">Чоловіча</option>
               <option value="female">Жіноча</option>
@@ -230,16 +230,16 @@ const GiftFinder = () => {
             {gifts.length > 0 && <h2>Рекомендовані подарунки</h2>}
 
             {submittedCriteria && gifts.length > 0 && (
-               <p className="recommendation-note">
-                 Підібрано на основі ваших критеріїв:
-                 {submittedCriteria.age && ` вік (${submittedCriteria.age}),`}
-                 {submittedCriteria.gender && ` стать (${submittedCriteria.gender === 'male' ? 'чоловіча' : 'жіноча'}),`}
-                 {/* Display selected budget and occasion */}
-                 {submittedCriteria.budget && submittedCriteria.budget !== 'any' && ` бюджет (${budgetOptions.find(o => o.value === submittedCriteria.budget)?.label || submittedCriteria.budget}),`}
-                 {submittedCriteria.occasion && submittedCriteria.occasion !== 'any' && ` привід (${occasionOptions.find(o => o.value === submittedCriteria.occasion)?.label || submittedCriteria.occasion}),`}
-                 {submittedCriteria.interests && ` інтереси (${submittedCriteria.interests}),`}
-                 {submittedCriteria.profession && ` професія (${submittedCriteria.profession})`}
-               </p>
+              <p className="recommendation-note">
+                Підібрано на основі ваших критеріїв:
+                {submittedCriteria.age && ` вік (${submittedCriteria.age}),`}
+                {submittedCriteria.gender && ` стать (${submittedCriteria.gender === 'male' ? 'чоловіча' : 'жіноча'}),`}
+                {/* Display selected budget and occasion */}
+                {submittedCriteria.budget && submittedCriteria.budget !== 'any' && ` бюджет (${budgetOptions.find(o => o.value === submittedCriteria.budget)?.label || submittedCriteria.budget}),`}
+                {submittedCriteria.occasion && submittedCriteria.occasion !== 'any' && ` привід (${occasionOptions.find(o => o.value === submittedCriteria.occasion)?.label || submittedCriteria.occasion}),`}
+                {submittedCriteria.interests && ` інтереси (${submittedCriteria.interests}),`}
+                {submittedCriteria.profession && ` професія (${submittedCriteria.profession})`}
+              </p>
             )}
 
             {aiStatus === 'generating' && (
@@ -249,43 +249,43 @@ const GiftFinder = () => {
             )}
 
             {gifts.length > 0 ? (
-               <div className="gift-list">
-                 {gifts.map((gift) => (
-                   <div key={gift.id} className={`gift-card ${gift.ai_suggested ? 'ai-suggested' : ''}`}>
-                     {gift.ai_suggested && <div className="ai-badge">AI</div>}
-                     {gift.image_url ? (
-                       <div className="gift-image">
-                         <img
-                           src={gift.image_url} alt={gift.name}
-                           onError={(e) => {
-                             // Simply hide the broken image element
-                             e.target.style.display = 'none';
-                             // Add a class to the parent to show the placeholder text via CSS if needed
-                             // but the existing .no-image class for null URLs already does this.
-                             // We rely on the background color of .gift-image or the .no-image style.
-                             const parent = e.target.parentNode;
-                             parent.classList.add('image-error'); // Add a class to signal error state
-                           }}
-                         />
-                         {/* Placeholder text can be added here and shown via CSS on error */}
-                         <div className="no-image-text"><span>Зображення відсутнє</span></div>
-                       </div>
-                     ) : (
-                       // This part handles when image_url is null initially
-                       <div className="gift-image no-image">
-                         <span>Зображення відсутнє</span>
-                       </div>
-                     )}
-                     <div className="gift-info">
-                       <h3>{gift.name}</h3>
-                       <p>{gift.description}</p>
-                       <span className="price-range">{gift.price_range}</span>
-                     </div>
-                   </div>
-                 ))}
-               </div>
+              <div className="gift-list">
+                {gifts.map((gift) => (
+                  <div key={gift.id} className={`gift-card ${gift.ai_suggested ? 'ai-suggested' : ''}`}>
+                    {gift.ai_suggested && <div className="ai-badge">AI</div>}
+                    {gift.image_url ? (
+                      <div className="gift-image">
+                        <img
+                          src={gift.image_url} alt={gift.name}
+                          onError={(e) => {
+                            // Simply hide the broken image element
+                            e.target.style.display = 'none';
+                            // Add a class to the parent to show the placeholder text via CSS if needed
+                            // but the existing .no-image class for null URLs already does this.
+                            // We rely on the background color of .gift-image or the .no-image style.
+                            const parent = e.target.parentNode;
+                            parent.classList.add('image-error'); // Add a class to signal error state
+                          }}
+                        />
+                        {/* Placeholder text can be added here and shown via CSS on error */}
+                        <div className="no-image-text"><span>Зображення відсутнє</span></div>
+                      </div>
+                    ) : (
+                      // This part handles when image_url is null initially
+                      <div className="gift-image no-image">
+                        <span>Зображення відсутнє</span>
+                      </div>
+                    )}
+                    <div className="gift-info">
+                      <h3>{gift.name}</h3>
+                      <p>{gift.description}</p>
+                      <span className="price-range">{gift.price_range}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : (
-               aiStatus === 'generating' && <p className="initial-searching-message">База даних не містить відповідних подарунків, очікуємо на ШІ...</p>
+              aiStatus === 'generating' && <p className="initial-searching-message">База даних не містить відповідних подарунків, очікуємо на ШІ...</p>
             )}
           </div>
         ) : (

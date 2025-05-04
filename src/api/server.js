@@ -7,6 +7,7 @@ import bcrypt from 'bcrypt';
 import process from 'process';
 import { getImageUrl } from '../services/pexelsService.js';
 import { generateCompletion, formatMistralPrompt } from '../services/llamaService.js';
+import { translateToEnglish } from '../services/pexelsService.js';
 
 dotenv.config();
 
@@ -120,9 +121,9 @@ app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
     // --- Start Background AI Gift Generation Immediately (Updated) ---
     generateAiGifts(age, gender, interests, profession, budget, occasion, requestId).catch(err => { // Pass budget & occasion
       console.error(`Background AI gift generation error for ${requestId}:`, err);
-       if (pendingAiSuggestions.has(requestId)) {
-           pendingAiSuggestions.set(requestId, { status: 'error', error: err.message || 'Unknown AI generation error' });
-       }
+      if (pendingAiSuggestions.has(requestId)) {
+        pendingAiSuggestions.set(requestId, { status: 'error', error: err.message || 'Unknown AI generation error' });
+      }
     });
     // -----------------------------------------------------
 
@@ -144,15 +145,15 @@ app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
     let budgetMin = 0;
     let budgetMax = 99999; // Default large max
     if (budget && typeof budget === 'string') {
-        const parts = budget.split('-').map(p => parseFloat(p.replace(/[^0-9.]/g, '')));
-        if (parts.length === 1 && !isNaN(parts[0])) {
-            budgetMax = parts[0]; // If only one value, treat as max budget
-        } else if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-            budgetMin = parts[0];
-            budgetMax = parts[1];
-        } else if (budget.toLowerCase() === 'any') {
-             // Keep defaults if 'any'
-        }
+      const parts = budget.split('-').map(p => parseFloat(p.replace(/[^0-9.]/g, '')));
+      if (parts.length === 1 && !isNaN(parts[0])) {
+        budgetMax = parts[0]; // If only one value, treat as max budget
+      } else if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        budgetMin = parts[0];
+        budgetMax = parts[1];
+      } else if (budget.toLowerCase() === 'any') {
+        // Keep defaults if 'any'
+      }
     }
     console.log(`Budget range: ${budgetMin} - ${budgetMax}`);
 
@@ -200,11 +201,11 @@ app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
       // Optionally query only by budget if no tags
       const budgetOnlyQuery = `SELECT *, 0 as match_count FROM gifts WHERE budget_min <= ? AND budget_max >= ? ORDER BY RAND() LIMIT 8`;
       try {
-          [dbGifts] = await pool.query(budgetOnlyQuery, [budgetMax, budgetMin]);
-          console.log(`Found ${dbGifts.length} gifts from database matching budget only`);
+        [dbGifts] = await pool.query(budgetOnlyQuery, [budgetMax, budgetMin]);
+        console.log(`Found ${dbGifts.length} gifts from database matching budget only`);
       } catch (sqlError) {
-          console.error('SQL Error executing budget-only query:', sqlError);
-          dbGifts = [];
+        console.error('SQL Error executing budget-only query:', sqlError);
+        dbGifts = [];
       }
     }
 
@@ -217,12 +218,12 @@ app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
       requestId: requestId
     });
     enrichGiftsWithImages(dbGifts.map(g => ({ ...g, ai_suggested: false })))
-    .catch(err => console.error('Async image enrichment failed:', err))
+      .catch(err => console.error('Async image enrichment failed:', err))
 
   } catch (error) {
     console.error('Gift recommendation initial request error:', error.message);
     if (requestId && pendingAiSuggestions.has(requestId)) {
-         pendingAiSuggestions.set(requestId, { status: 'error', error: error.message || 'Initial request processing error' });
+      pendingAiSuggestions.set(requestId, { status: 'error', error: error.message || 'Initial request processing error' });
     }
     res.status(500).json({ message: 'Помилка сервера під час отримання рекомендацій.' });
   }
@@ -246,20 +247,30 @@ app.get('/api/gifts/ai-status/:requestId', authenticateToken, async (req, res) =
 });
 
 // Background AI gift generation function (Updated)
-async function generateAiGifts(age, gender, interests, profession, budget, occasion, requestId) { // Added budget, occasion
+async function generateAiGifts(age, gender, interests, profession, budget, occasion, requestId) {
+  // mark as in‐progress
   pendingAiSuggestions.set(requestId, { status: 'generating' });
-  console.log(`Starting background AI generation for ${requestId}`);
+  console.log(`🧠 [${requestId}] Starting background AI generation (Budget: ${budget}, Occasion: ${occasion})`);
 
   try {
-     let aiGifts = [];
-     // Updated System Prompt
-     const systemPrompt = `
+    // 1) Analyze input → tags
+    const aiTags = await analyzeUserInput({ age, gender, interests, profession, occasion });
+    const allTags = [
+      ...(aiTags.ageTags || []),
+      ...(aiTags.genderTags || []),
+      ...(aiTags.interestTags || []),
+      ...(aiTags.professionTags || []),
+      ...(aiTags.occasionTags || [])
+    ].filter(Boolean);
+    console.log(`[${requestId}] LLM suggested tags:`, aiTags);
+    // Updated System Prompt
+    const systemPrompt = `
        Ви — експерт із підбору подарунків, що враховує бюджет та привід.
        Будь ласка, надавайте відповіді українською мовою.
      `.trim();
 
-     // Updated User Prompt
-     const userPrompt = `
+    // Updated User Prompt
+    const userPrompt = `
        Мені потрібен ідеальний подарунок для людини з такими характеристиками:
 
        Вік: ${age || 'не вказано'}
@@ -287,63 +298,99 @@ async function generateAiGifts(age, gender, interests, profession, budget, occas
      `;
 
     console.log(`🧠 [${requestId}] Using local LLM for gift suggestions (Budget: ${budget}, Occasion: ${occasion})`);
-    const formattedPrompt = formatMistralPrompt(systemPrompt, userPrompt);
-    const result = await generateCompletion(formattedPrompt, {
-      temperature: 0.75, // Slightly higher for more variety
-      maxTokens: 1200 // Increased slightly
-    });
+    const formatted = formatMistralPrompt(systemPrompt, userPrompt)
+    const raw = await generateCompletion(formatted, { temperature: 0.75, maxTokens: 1200 })
+    const match = raw.match(/(\[[\s\S]*?\])/)
+    if (!match) throw new Error('No JSON array in LLM response')
+    const suggestions = JSON.parse(match[1])
+    console.log(`🧠 [${requestId}] LLM returned ${suggestions.length} gifts`)
 
-    console.log(`[${requestId}] LLM gift suggestion raw response:`, result);
+    // 3) Insert unique gifts
+    const uniqueTags = [...new Set(allTags)]
+    const aiGifts = []
 
-    const jsonMatch = result.match(/(\[[\s\S]*?\])/);
-    if (jsonMatch && jsonMatch[1]) {
+    for (const gift of suggestions) {
+      // 3a) skip if name exists
+      const [[exists]] = await pool.query(
+        'SELECT id FROM gifts WHERE name = ?',
+        [gift.name]
+      )
+      if (exists) {
+        console.log(`⚠️ [${requestId}] "${gift.name}" exists (id=${exists.id}), skipping`)
+        continue
+      }
+
+      // 3b) translate once
+      let name_en = null
       try {
-        const cleanedJsonString = jsonMatch[1].replace(/\\_/g, '_');
-        aiGifts = JSON.parse(cleanedJsonString);
+        name_en = await translateToEnglish(gift.name)
+      } catch {
+        console.warn(`⚠️ [${requestId}] Translation failed for "${gift.name}"`)
+      }
 
-        aiGifts = aiGifts.map((gift, index) => ({
-          ...gift,
-          id: -1000 - index,
-          ai_generated: true,
-          ai_suggested: true,
-          image_url: null,
-          match_count: gift.match_count || 10 // Add default match_count if missing
-        }));
+      // 3c) fetch image (skip re‑translate)
+      let image_url = null
+      try {
+        const queryName = name_en || gift.name
+        image_url = await getImageUrl(queryName, Boolean(name_en))
+      } catch {
+        console.warn(`⚠️ [${requestId}] No image for "${gift.name}"`)
+      }
 
-        console.log(`[${requestId}] 📸 Fetching images for AI gifts...`);
-        for (const gift of aiGifts) {
-          if (gift.name && typeof gift.name === 'string' && gift.name.trim() !== '') {
-            try {
-              gift.image_url = await getImageUrl(gift.name);
-              console.log(`[${requestId}] ✅ Added image for AI gift: "${gift.name}"`);
-            } catch (imgError) {
-              console.error(`[${requestId}] ❌ Failed image fetch for AI gift "${gift.name}":`, imgError.message);
-            }
-          } else {
-             console.warn(`[${requestId}] ⚠️ Skipping image fetch for AI gift with invalid name:`, gift);
+      // 3d) parse price_range → min/max
+      const parts = gift.price_range.replace(/[^0-9.-]+/g, '').split('-')
+      const budget_min = parseFloat(parts[0]) || 0
+      const budget_max = parseFloat(parts[1]) || budget_min
+
+      // 3e) insert gift
+      const [ins] = await pool.query(
+        `INSERT INTO gifts
+          (name, name_en, description, price_range, budget_min, budget_max, image_url)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [gift.name, name_en, gift.description, gift.price_range, budget_min, budget_max, image_url]
+      )
+      const newId = ins.insertId
+      console.log(`✅ [${requestId}] Inserted "${gift.name}" (id=${newId})`)
+
+      // 3f) link tags
+      for (const tagName of uniqueTags) {
+        const [[tagRow]] = await pool.query(
+          'SELECT id FROM tags WHERE name = ?',
+          [tagName]
+        )
+        if (tagRow) {
+          try {
+            await pool.query(
+              'INSERT INTO gift_tags (gift_id, tag_id) VALUES (?, ?)',
+              [newId, tagRow.id]
+            )
+          } catch (err) {
+            console.warn(`⚠️ [${requestId}] Could not link tag "${tagName}" → gift ${newId}: ${err.message}`)
           }
         }
-
-        pendingAiSuggestions.set(requestId, {
-          status: 'completed',
-          gifts: aiGifts
-        });
-        console.log(`[${requestId}] ✅ Completed background AI generation.`);
-
-      } catch (parseError) {
-        console.error(`[${requestId}] Failed to parse LLM suggestions:`, parseError);
-        pendingAiSuggestions.set(requestId, { status: 'error', error: 'Failed to parse AI suggestions' });
       }
-    } else {
-      console.warn(`[${requestId}] ⚠️ No JSON array found in LLM response.`);
-      pendingAiSuggestions.set(requestId, { status: 'error', error: 'No valid suggestions returned from AI' });
+
+      // 3g) collect for response
+      aiGifts.push({
+        id: newId,
+        name: gift.name,
+        name_en,
+        description: gift.description,
+        price_range: gift.price_range,
+        budget_min,
+        budget_max,
+        image_url,
+        ai_suggested: true
+      })
     }
 
-  } catch (error) {
-    console.error(`[${requestId}] Background AI generation error:`, error.message);
-    if (pendingAiSuggestions.has(requestId)) {
-        pendingAiSuggestions.set(requestId, { status: 'error', error: error.message || 'Unknown AI generation error' });
-    }
+    // 4) complete
+    console.log(`🧠 [${requestId}] AI done: ${aiGifts.length} new gifts`)
+    pendingAiSuggestions.set(requestId, { status: 'completed', gifts: aiGifts })
+
+  } catch (err) {
+    console.error(`🧠 [${requestId}] AI error:`, err.message)
+    pendingAiSuggestions.set(requestId, { status: 'error', error: err.message })
   }
 }
 
@@ -477,7 +524,7 @@ const analyzeUserInput = async (userInput) => {
         const parsed = JSON.parse(jsonMatch[0]);
         // Ensure occasionTags exists and defaults to ['any'] if empty or missing
         if (!parsed.occasionTags || !Array.isArray(parsed.occasionTags) || parsed.occasionTags.length === 0) {
-            parsed.occasionTags = ['any'];
+          parsed.occasionTags = ['any'];
         }
         return parsed;
       } catch (e) {
@@ -550,7 +597,7 @@ export async function enrichGiftsWithImages(gifts) {
 }
 
 // Image initialization on startup
-;(async () => {
+; (async () => {
   try {
     console.log('🚀 Server starting - checking for missing gift images');
     const [giftsWithoutImages] = await pool.query(
