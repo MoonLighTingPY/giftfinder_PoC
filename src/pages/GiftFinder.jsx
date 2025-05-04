@@ -1,17 +1,46 @@
 // src/pages/GiftFinder.jsx
-import { useState, useEffect } from 'react'; // Ensure useEffect is imported
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useSelector } from 'react-redux';
 import '../styles/pages/GiftFinder.css';
 
+// Define budget options
+const budgetOptions = [
+  { value: 'any', label: 'Будь-який' },
+  { value: '0-50', label: 'До $50' },
+  { value: '50-100', label: '$50 - $100' },
+  { value: '100-250', label: '$100 - $250' },
+  { value: '250-500', label: '$250 - $500' },
+  { value: '500+', label: '$500+' } // Represented as 500-99999 in backend
+];
+
+// Define occasion options (should match DB tags)
+const occasionOptions = [
+  { value: 'any', label: 'Будь-який' },
+  { value: 'birthday', label: 'День народження' },
+  { value: 'christmas', label: 'Різдво' },
+  { value: 'anniversary', label: 'Річниця' },
+  { value: 'valentines', label: 'День Валентина' },
+  { value: 'graduation', label: 'Випускний' },
+  { value: 'thank you', label: 'Подяка' }
+];
+
+
 const GiftFinder = () => {
-  const [recipientInfo, setRecipientInfo] = useState({}); // Recipient information
-  const [gifts, setGifts] = useState([]); // Combined list for display
-  const [dbGifts, setDbGifts] = useState([]); // Store DB gifts separately for merging
-  const [isSearching, setIsSearching] = useState(false); // New state for overall search process
+  const [recipientInfo, setRecipientInfo] = useState({
+    age: '',
+    gender: '',
+    interests: '',
+    profession: '',
+    budget: 'any', // Default budget
+    occasion: 'any' // Default occasion
+  });
+  const [gifts, setGifts] = useState([]);
+  const [dbGifts, setDbGifts] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState('');
   const token = useSelector(state => state.auth.token);
-  const [aiStatus, setAiStatus] = useState(null); // 'generating', 'completed', 'error', null
+  const [aiStatus, setAiStatus] = useState(null);
   const [requestId, setRequestId] = useState(null);
   const [submittedCriteria, setSubmittedCriteria] = useState(null);
 
@@ -22,52 +51,54 @@ const GiftFinder = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setGifts([]);      // Clear previous results
-    setDbGifts([]);    // Clear previous DB results
-    setAiStatus(null); // Reset AI status
-    setRequestId(null); // Reset request ID
+    setGifts([]);
+    setDbGifts([]);
+    setAiStatus(null);
+    setRequestId(null);
     setError('');
-    setIsSearching(true); // Set searching state to true
-    setSubmittedCriteria(recipientInfo);
+    setSubmittedCriteria(recipientInfo); // Store submitted criteria
+    setIsSearching(true);
 
     try {
       console.log('Sending request with:', recipientInfo);
 
-      // Make the initial request
+      // Prepare data, handle budget '500+' case
+      let budgetToSend = recipientInfo.budget;
+      if (budgetToSend === '500+') {
+          budgetToSend = '500-99999'; // Match backend expectation
+      }
+      const payload = { ...recipientInfo, budget: budgetToSend };
+
+
       const response = await axios.post(
         `${import.meta.env.VITE_API_URL}/api/gifts/recommend`,
-        recipientInfo,
+        payload, // Send updated payload
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
       console.log('Received initial response:', response.data);
 
-      // Process the initial response (contains DB gifts)
       const initialDbGifts = response.data.gifts || [];
-      setDbGifts(initialDbGifts); // Store DB gifts
-      setGifts(initialDbGifts);   // Display DB gifts immediately
+      setDbGifts(initialDbGifts);
+      setGifts(initialDbGifts);
 
-      // Check if AI generation started and store ID for polling
       if (response.data.aiStatus === 'generating' && response.data.requestId) {
         setAiStatus('generating');
         setRequestId(response.data.requestId);
         console.log(`AI generation started with ID: ${response.data.requestId}`);
       } else {
-        // If AI isn't generating (e.g., disabled or error in initial request)
         setIsSearching(false);
-        setAiStatus('not_started'); // Or handle as appropriate
+        setAiStatus('not_started');
       }
 
       if (initialDbGifts.length === 0 && response.data.aiStatus !== 'generating') {
-         // Only show error if DB gifts are empty AND AI isn't generating
          setError('На жаль, подарунків за вашими критеріями не знайдено. Спробуйте змінити параметри пошуку.');
       }
 
     } catch (error) {
       console.error('Помилка отримання початкових рекомендацій:', error);
       setError('Виникла помилка при пошуку подарунків. Будь ласка, спробуйте пізніше.');
-      setAiStatus('error'); // Mark AI status as error too
-    } finally {
+      setAiStatus('error');
       setIsSearching(false);
     }
   };
@@ -92,92 +123,96 @@ const GiftFinder = () => {
             clearInterval(intervalId);
             setAiStatus('completed');
             const aiGeneratedGifts = response.data.gifts || [];
-            setGifts([...aiGeneratedGifts, ...dbGifts]);
-            setIsSearching(false); // Stop "searching" when AI is done
+            setGifts([...aiGeneratedGifts, ...dbGifts]); // AI gifts first
+            setIsSearching(false);
           } else if (response.data.status === 'error') {
             clearInterval(intervalId);
             setAiStatus('error');
-            setIsSearching(false); 
+            setIsSearching(false);
             console.error(`AI generation error for ${requestId}:`, response.data.error);
-            // Optionally display a specific error message for AI failure
-            // setError(prev => prev ? `${prev} Помилка генерації ШІ.` : 'Помилка генерації ШІ.');
           } else if (response.data.status === 'generating' || response.data.status === 'pending') {
-            // Still generating, continue polling
             console.log(`AI still generating for ${requestId}...`);
           } else {
-             // Unexpected status
              console.warn(`Unexpected AI status for ${requestId}:`, response.data.status);
              clearInterval(intervalId);
              setAiStatus('error');
+             setIsSearching(false);
           }
         } catch (error) {
           console.error(`Error polling for AI gifts (${requestId}):`, error);
           setAiStatus('error');
-          clearInterval(intervalId); // Stop polling on error
+          clearInterval(intervalId);
+          setIsSearching(false);
         }
-      }, 3000); // Poll every 3 seconds
+      }, 3000);
     }
 
-    // Cleanup function to clear interval when component unmounts or dependencies change
     return () => {
       if (intervalId) {
         clearInterval(intervalId);
       }
     };
   }, [requestId, aiStatus, token, dbGifts]);
+
   return (
     <div className="container">
       <h1>Пошук Подарунків</h1>
 
       <form onSubmit={handleSubmit} className="gift-form">
-        {/* Wrap Age and Gender in a row */}
+        {/* Row 1: Age & Gender */}
         <div className="form-row">
-          <div className="form-group form-group-half"> {/* Add class for half width */}
+          <div className="form-group form-group-half">
             <label>Вік:</label>
             <input
-              type="number"
-              name="age"
-              value={recipientInfo.age}
-              onChange={handleChange}
-              min="1" // Optional: Add min age
-              required
+              type="number" name="age" value={recipientInfo.age}
+              onChange={handleChange} min="1" required
             />
           </div>
-
-          <div className="form-group form-group-half"> {/* Add class for half width */}
+          <div className="form-group form-group-half">
             <label>Стать:</label>
-            <select
-              name="gender"
-              value={recipientInfo.gender}
-              onChange={handleChange}
-              required
-            >
+            <select name="gender" value={recipientInfo.gender} onChange={handleChange} required>
               <option value="">Оберіть стать</option>
               <option value="male">Чоловіча</option>
               <option value="female">Жіноча</option>
-              {/* Removed 'Other' option */}
             </select>
           </div>
-        </div> {/* End form-row */}
+        </div>
 
+        {/* Row 2: Budget & Occasion */}
+        <div className="form-row">
+          <div className="form-group form-group-half">
+            <label>Бюджет:</label>
+            <select name="budget" value={recipientInfo.budget} onChange={handleChange}>
+              {budgetOptions.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group form-group-half">
+            <label>Привід:</label>
+            <select name="occasion" value={recipientInfo.occasion} onChange={handleChange}>
+              {occasionOptions.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Row 3: Interests */}
         <div className="form-group">
           <label>Інтереси/Хобі:</label>
           <textarea
-            name="interests"
-            value={recipientInfo.interests}
-            onChange={handleChange}
-            placeholder="Введіть інтереси, розділені комами"
-            required
+            name="interests" value={recipientInfo.interests} onChange={handleChange}
+            placeholder="Введіть інтереси, розділені комами" required
           ></textarea>
         </div>
 
+        {/* Row 4: Profession */}
         <div className="form-group">
           <label>Професія:</label>
           <input
-            type="text"
-            name="profession"
-            value={recipientInfo.profession}
-            onChange={handleChange}
+            type="text" name="profession" value={recipientInfo.profession}
+            onChange={handleChange} placeholder="Напр., інженер, вчитель (необов'язково)"
           />
         </div>
 
@@ -186,91 +221,78 @@ const GiftFinder = () => {
         </button>
       </form>
 
-      {error && (
-        <div className="error-message">
-          {error}
-        </div>
-      )}
+      {error && <div className="error-message">{error}</div>}
 
-      {/* Display gifts container if loading is finished AND we have gifts OR AI is generating */}
-      {(!isSearching && gifts.length > 0) || aiStatus === 'generating' ? (
+      {/* Display Results Area */}
+      <>
+        {(!isSearching && gifts.length > 0) || aiStatus === 'generating' ? (
           <div className="gifts-container">
-          {/* Show header only if there are gifts */}
-          {gifts.length > 0 && <h2>Рекомендовані подарунки</h2>}
+            {gifts.length > 0 && <h2>Рекомендовані подарунки</h2>}
 
-          {/* Recommendation note can be shown if gifts exist */}
-          {submittedCriteria && gifts.length > 0 && ( // Check if submittedCriteria exists
-             <p className="recommendation-note">
-               Підібрано на основі ваших критеріїв:
-               {submittedCriteria.age && ` вік (${submittedCriteria.age}),`}
-               {submittedCriteria.gender && ` стать (${
-                  submittedCriteria.gender === 'male' ? 'чоловіча' :
-                  submittedCriteria.gender === 'female' ? 'жіноча' : 'інша'
-                }),`}
-               {submittedCriteria.interests && ` інтереси (${submittedCriteria.interests}),`}
-               {submittedCriteria.profession && ` професія (${submittedCriteria.profession})`}
-             </p>
-          )}
+            {submittedCriteria && gifts.length > 0 && (
+               <p className="recommendation-note">
+                 Підібрано на основі ваших критеріїв:
+                 {submittedCriteria.age && ` вік (${submittedCriteria.age}),`}
+                 {submittedCriteria.gender && ` стать (${submittedCriteria.gender === 'male' ? 'чоловіча' : 'жіноча'}),`}
+                 {/* Display selected budget and occasion */}
+                 {submittedCriteria.budget && submittedCriteria.budget !== 'any' && ` бюджет (${budgetOptions.find(o => o.value === submittedCriteria.budget)?.label || submittedCriteria.budget}),`}
+                 {submittedCriteria.occasion && submittedCriteria.occasion !== 'any' && ` привід (${occasionOptions.find(o => o.value === submittedCriteria.occasion)?.label || submittedCriteria.occasion}),`}
+                 {submittedCriteria.interests && ` інтереси (${submittedCriteria.interests}),`}
+                 {submittedCriteria.profession && ` професія (${submittedCriteria.profession})`}
+               </p>
+            )}
 
-
-          {/* Show AI generation status message */}
-          {aiStatus === 'generating' && (
+            {aiStatus === 'generating' && (
               <div className="initial-searching-message">
                 <p>ШІ генерує додаткові подарунки...</p>
               </div>
             )}
 
-          {/* Render the gift list */}
-          {gifts.length > 0 ? (
+            {gifts.length > 0 ? (
                <div className="gift-list">
                  {gifts.map((gift) => (
                    <div key={gift.id} className={`gift-card ${gift.ai_suggested ? 'ai-suggested' : ''}`}>
-                     {/* ... gift card content ... */}
-                      {gift.ai_suggested && (
-                        <div className="ai-badge">AI</div>
-                      )}
-                      {gift.image_url ? (
-                        <div className="gift-image">
-                          <img
-                            src={gift.image_url}
-                            alt={gift.name}
-                            onError={(e) => {
-                              console.error(`Failed to load image: ${e.target.src}`);
-                              e.target.style.display = 'none'; // Hide broken image
-                              const parent = e.target.parentNode;
-                              if (parent && !parent.querySelector('.no-image-placeholder')) {
-                                 const placeholder = document.createElement('div');
-                                 placeholder.className = 'no-image no-image-placeholder';
-                                 placeholder.innerHTML = '<span>Зображення відсутнє</span>';
-                                 parent.appendChild(placeholder);
-                              }
-                            }}
-                          />
-                        </div>
-                      ) : (
-                        <div className="gift-image no-image">
-                          <span>Зображення відсутнє</span>
-                        </div>
-                      )}
-                      <div className="gift-info">
-                        <h3>{gift.name}</h3>
-                        <p>{gift.description}</p>
-                        <span className="price-range">{gift.price_range}</span>
-                      </div>
+                     {gift.ai_suggested && <div className="ai-badge">AI</div>}
+                     {gift.image_url ? (
+                       <div className="gift-image">
+                         <img
+                           src={gift.image_url} alt={gift.name}
+                           onError={(e) => {
+                             // Simply hide the broken image element
+                             e.target.style.display = 'none';
+                             // Add a class to the parent to show the placeholder text via CSS if needed
+                             // but the existing .no-image class for null URLs already does this.
+                             // We rely on the background color of .gift-image or the .no-image style.
+                             const parent = e.target.parentNode;
+                             parent.classList.add('image-error'); // Add a class to signal error state
+                           }}
+                         />
+                         {/* Placeholder text can be added here and shown via CSS on error */}
+                         <div className="no-image-text"><span>Зображення відсутнє</span></div>
+                       </div>
+                     ) : (
+                       // This part handles when image_url is null initially
+                       <div className="gift-image no-image">
+                         <span>Зображення відсутнє</span>
+                       </div>
+                     )}
+                     <div className="gift-info">
+                       <h3>{gift.name}</h3>
+                       <p>{gift.description}</p>
+                       <span className="price-range">{gift.price_range}</span>
+                     </div>
                    </div>
                  ))}
                </div>
             ) : (
-               aiStatus === 'generating' && <p>База даних не містить відповідних подарунків, очікуємо на ШІ...</p>
+               aiStatus === 'generating' && <p className="initial-searching-message">База даних не містить відповідних подарунків, очікуємо на ШІ...</p>
             )}
-          </div> // End gifts-container
+          </div>
         ) : (
-          // Show the main "Searching..." message only when isSearching is true AND no results yet
           isSearching && <p className="initial-searching-message">Шукаємо ідеальні подарунки...</p>
         )}
-
-      {/* The rest of the component return continues after this */}
-    </div> // End container
+      </>
+    </div>
   );
 };
 

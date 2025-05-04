@@ -1,22 +1,21 @@
-// src/api/server.js
-import express from 'express'
-import cors from 'cors'
-import dotenv from 'dotenv'
-import mysql from 'mysql2/promise'
-import jwt from 'jsonwebtoken'
-import bcrypt from 'bcrypt'
-import process from 'process'
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import mysql from 'mysql2/promise';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
+import process from 'process';
 import { getImageUrl } from '../services/pexelsService.js';
 import { generateCompletion, formatMistralPrompt } from '../services/llamaService.js';
 
-dotenv.config()
+dotenv.config();
 
-const app = express()
-const PORT = process.env.PORT || 3001
+const app = express();
+const PORT = process.env.PORT || 3001;
 
 // Middleware
-app.use(cors())
-app.use(express.json())
+app.use(cors());
+app.use(express.json());
 
 // Database connection
 const pool = mysql.createPool({
@@ -26,114 +25,93 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME || 'gift_finder',
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
-})
+  queueLimit: 0,
+  decimalNumbers: true // Ensure decimals are returned as numbers
+});
 
 // Middleware to verify JWT
 const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization']
-  const token = authHeader && authHeader.split(' ')[1]
-  
-  if (!token) return res.status(401).json({ message: 'Unauthorized' })
-  
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ message: 'Forbidden' })
-    req.user = user
-    next()
-  })
-}
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
 
-// Routes
+  if (!token) return res.status(401).json({ message: 'Unauthorized' });
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    if (err) return res.status(403).json({ message: 'Forbidden' });
+    req.user = user;
+    next();
+  });
+};
+
+// --- Auth Routes ---
 app.post('/api/register', async (req, res) => {
   try {
-    const { username, email, password } = req.body
-    
-    // Check if user already exists
+    const { username, email, password } = req.body;
     const [existingUsers] = await pool.query(
       'SELECT * FROM users WHERE username = ? OR email = ?',
       [username, email]
-    )
-    
+    );
     if (existingUsers.length > 0) {
-      return res.status(409).json({ message: 'Username or email already exists' })
+      return res.status(409).json({ message: 'Username or email already exists' });
     }
-    
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10)
-    
-    // Insert new user
+    const hashedPassword = await bcrypt.hash(password, 10);
     // eslint-disable-next-line no-unused-vars
     const [_] = await pool.query(
       'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
       [username, email, hashedPassword]
-    )
-    
-    res.status(201).json({ message: 'User created successfully' })
+    );
+    res.status(201).json({ message: 'User created successfully' });
   } catch (error) {
-    console.error('Registration error:', error)
-    res.status(500).json({ message: 'Server error' })
+    console.error('Registration error:', error);
+    res.status(500).json({ message: 'Server error' });
   }
-})
+});
 
 app.post('/api/login', async (req, res) => {
   try {
-    const { username, password } = req.body
-    
-    // Find user
+    const { username, password } = req.body;
     const [users] = await pool.query(
       'SELECT * FROM users WHERE username = ?',
       [username]
-    )
-    
+    );
     if (users.length === 0) {
-      return res.status(401).json({ message: 'Invalid credentials' })
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
-    
-    const user = users[0]
-    
-    // Check password
-    const isPasswordValid = await bcrypt.compare(password, user.password_hash)
-    
+    const user = users[0];
+    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
     if (!isPasswordValid) {
-      return res.status(401).json({ message: 'Invalid credentials' })
+      return res.status(401).json({ message: 'Invalid credentials' });
     }
-    
-    // Generate JWT
     const token = jwt.sign(
       { id: user.id, username: user.username },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
-    )
-    
+    );
     res.json({
       message: 'Login successful',
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email
-      },
+      user: { id: user.id, username: user.username, email: user.email },
       token
-    })
+    });
   } catch (error) {
-    console.error('Login error:', error)
-    res.status(500).json({ message: 'Server error' })
+    console.error('Login error:', error);
+    res.status(500).json({ message: 'Server error' });
   }
-})
+});
 
+// --- Gift Recommendation ---
 const pendingAiSuggestions = new Map();
 
-// src/api/server.js
-
-// Gift recommendation endpoint
+// Gift recommendation endpoint (Updated)
 app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
-  let requestId = null; // Declare requestId outside the try block
+  let requestId = null;
 
   try {
-    const { age, gender, interests, profession } = req.body;
-    requestId = Date.now().toString() + Math.random().toString(36).substring(2); // Assign value inside try
+    // Destructure new fields: budget, occasion
+    const { age, gender, interests, profession, budget, occasion } = req.body;
+    requestId = Date.now().toString() + Math.random().toString(36).substring(2);
 
-    // --- Start Background AI Gift Generation Immediately ---
-    generateAiGifts(age, gender, interests, profession, requestId).catch(err => {
+    // --- Start Background AI Gift Generation Immediately (Updated) ---
+    generateAiGifts(age, gender, interests, profession, budget, occasion, requestId).catch(err => { // Pass budget & occasion
       console.error(`Background AI gift generation error for ${requestId}:`, err);
        if (pendingAiSuggestions.has(requestId)) {
            pendingAiSuggestions.set(requestId, { status: 'error', error: err.message || 'Unknown AI generation error' });
@@ -141,34 +119,86 @@ app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
     });
     // -----------------------------------------------------
 
-    // 1. Analyze user input
-    const aiTags = await analyzeUserInput({ age, gender, interests, profession });
+    // 1. Analyze user input (Updated)
+    const aiTags = await analyzeUserInput({ age, gender, interests, profession, occasion }); // Pass occasion
     console.log('LLM suggested tags:', aiTags);
 
-    // 2. Query database
+    // 2. Query database (Updated with budget and occasion)
     let dbGifts = [];
     const allSuggestedTags = [
       ...(aiTags.ageTags || []),
       ...(aiTags.genderTags || []),
       ...(aiTags.interestTags || []),
-      ...(aiTags.professionTags || [])
+      ...(aiTags.professionTags || []),
+      ...(aiTags.occasionTags || []) // Include occasion tags
     ].filter(tag => tag);
 
+    // Budget parsing
+    let budgetMin = 0;
+    let budgetMax = 99999; // Default large max
+    if (budget && typeof budget === 'string') {
+        const parts = budget.split('-').map(p => parseFloat(p.replace(/[^0-9.]/g, '')));
+        if (parts.length === 1 && !isNaN(parts[0])) {
+            budgetMax = parts[0]; // If only one value, treat as max budget
+        } else if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+            budgetMin = parts[0];
+            budgetMax = parts[1];
+        } else if (budget.toLowerCase() === 'any') {
+             // Keep defaults if 'any'
+        }
+    }
+    console.log(`Budget range: ${budgetMin} - ${budgetMax}`);
+
+
     if (allSuggestedTags.length > 0) {
+      // Updated Query with Budget Filter
       const query = `
-        SELECT g.*, COUNT(DISTINCT t.id) as match_count
-        FROM gifts g JOIN gift_tags gt ON g.id = gt.gift_id JOIN tags t ON gt.tag_id = t.id
-        WHERE t.name IN (?) GROUP BY g.id ORDER BY match_count DESC, g.id LIMIT 8
+        SELECT
+          g.*,
+          COUNT(DISTINCT t.id) as match_count
+        FROM
+          gifts g
+        JOIN
+          gift_tags gt ON g.id = gt.gift_id
+        JOIN
+          tags t ON gt.tag_id = t.id
+        WHERE
+          t.name IN (?) -- Match any relevant tag
+          AND g.budget_min <= ? -- Budget max filter
+          AND g.budget_max >= ? -- Budget min filter
+        GROUP BY
+          g.id
+        HAVING -- Ensure at least one occasion tag matches if specified, OR 'any' tag exists
+          SUM(CASE WHEN t.category = 'occasion' AND t.name IN (?) THEN 1 ELSE 0 END) > 0
+          OR SUM(CASE WHEN t.category = 'occasion' AND t.name = 'any' THEN 1 ELSE 0 END) > 0
+        ORDER BY
+          match_count DESC, g.id
+        LIMIT 8
       `;
+      // Prepare params: all tags, budgetMax, budgetMin, occasion tags (or 'any' if none specific)
+      const occasionQueryTags = aiTags.occasionTags && aiTags.occasionTags.length > 0 ? aiTags.occasionTags : ['any'];
+      const queryParams = [allSuggestedTags, budgetMax, budgetMin, occasionQueryTags];
+
       try {
-        [dbGifts] = await pool.query(query, [allSuggestedTags]);
-        console.log(`Found ${dbGifts.length} gifts from database matching tags`);
+        // console.log('SQL query:', query);
+        // console.log('Query params:', queryParams);
+        [dbGifts] = await pool.query(query, queryParams);
+        console.log(`Found ${dbGifts.length} gifts from database matching criteria`);
       } catch (sqlError) {
         console.error('SQL Error executing recommendation query:', sqlError);
         dbGifts = [];
       }
     } else {
       console.log('No valid tags suggested by LLM or extracted.');
+      // Optionally query only by budget if no tags
+      const budgetOnlyQuery = `SELECT *, 0 as match_count FROM gifts WHERE budget_min <= ? AND budget_max >= ? ORDER BY RAND() LIMIT 8`;
+      try {
+          [dbGifts] = await pool.query(budgetOnlyQuery, [budgetMax, budgetMin]);
+          console.log(`Found ${dbGifts.length} gifts from database matching budget only`);
+      } catch (sqlError) {
+          console.error('SQL Error executing budget-only query:', sqlError);
+          dbGifts = [];
+      }
     }
 
     // Enrich DB gifts
@@ -184,7 +214,6 @@ app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
 
   } catch (error) {
     console.error('Gift recommendation initial request error:', error.message);
-    // Now requestId is accessible here
     if (requestId && pendingAiSuggestions.has(requestId)) {
          pendingAiSuggestions.set(requestId, { status: 'error', error: error.message || 'Initial request processing error' });
     }
@@ -192,87 +221,69 @@ app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
   }
 });
 
-// Endpoint to check AI gift status (ensure this exists)
+// Endpoint to check AI gift status
 app.get('/api/gifts/ai-status/:requestId', authenticateToken, async (req, res) => {
   const { requestId } = req.params;
   const aiResult = pendingAiSuggestions.get(requestId);
 
   if (!aiResult) {
-    // Maybe the request is still initializing or ID is wrong
-    return res.json({ status: 'pending' }); // Or return 404 if you prefer
+    return res.json({ status: 'pending' });
   }
 
   if (aiResult.status === 'completed' || aiResult.status === 'error') {
-    // Send result and remove from map
     res.json(aiResult);
-    pendingAiSuggestions.delete(requestId); // Clean up memory
+    pendingAiSuggestions.delete(requestId);
   } else {
-    // Still generating
     res.json({ status: aiResult.status });
   }
 });
 
-
-// Background AI gift generation function (ensure this exists and updates pendingAiSuggestions map)
-async function generateAiGifts(age, gender, interests, profession, requestId) {
-  // Store initial pending status
+// Background AI gift generation function (Updated)
+async function generateAiGifts(age, gender, interests, profession, budget, occasion, requestId) { // Added budget, occasion
   pendingAiSuggestions.set(requestId, { status: 'generating' });
   console.log(`Starting background AI generation for ${requestId}`);
 
   try {
-    // ... (rest of the AI generation logic as before: system/user prompts, generateCompletion, parsing, image fetching) ...
-    // ... (ensure it correctly parses JSON and fetches images) ...
-
-    // Example structure after successful generation and image fetching:
-    // const finalAiGifts = aiGifts.map(gift => ({ ...gift, ai_suggested: true })); // Ensure flag is set
-
-    // Store successful result
-    // pendingAiSuggestions.set(requestId, {
-    //   status: 'completed',
-    //   gifts: finalAiGifts // The array of AI-generated gifts with images
-    // });
-    // console.log(`Completed background AI generation for ${requestId}`);
-
      let aiGifts = [];
+     // Updated System Prompt
      const systemPrompt = `
-     You are a gift recommendation expert bot that suggests gifts based on user characteristics.
-     You return your answer ONLY as a valid JSON array, always in Ukrainian language and at without ANY additional text
-   `.trim();
+       Ви — експерт із підбору подарунків, що враховує бюджет та привід.
+       Будь ласка, надавайте відповіді українською мовою.
+     `.trim();
 
-   const userPrompt = `
-     I need to find the perfect gift for a person with these characteristics:
-     
-     Age: ${age || 'not specified'}
-     Gender: ${gender === 'male' ? 'male' : gender === 'female' ? 'female' : 'not specified'}
-     Interests/Hobbies: ${interests || 'not specified'}
-     Profession: ${profession || 'not specified'}
-     
-     Suggest 3 specific gift ideas with descriptions and approximate price ranges.
-     Make sure they are not repetitive and are suitable for the given characteristics.
-     Each gift should be unique, not repetitive and relevant to the user.
-     Make sure the names and descriptions are not repetitive and are suitable for the given characteristics.
-     Each gift should be presented in this JSON format:
-     
-     {
-       "name": "Gift Name",
-       "description": "Detailed description of why this gift is suitable",
-       "price_range": "$XX-$YY",
-       "match_count": 10
-     }
-     
-     Return your answer ONLY as a valid JSON array, always in Ukrainian language and at all costs without ANY additional text:
-     [
-       { gift 1 },
-       { gift 2 },
-       { gift 3 }
-     ]
-   `;
+     // Updated User Prompt
+     const userPrompt = `
+       Мені потрібен ідеальний подарунок для людини з такими характеристиками:
 
-    console.log(`🧠 [${requestId}] Using local LLM for gift suggestions`);
+       Вік: ${age || 'не вказано'}
+       Стать: ${gender === 'male' ? 'чоловіча' : gender === 'female' ? 'жіноча' : 'не вказано'}
+       Інтереси/Хобі: ${interests || 'не вказано'}
+       Професія: ${profession || 'не вказано'}
+       Привід: ${occasion || 'будь-який'}
+       Бюджет: ${budget || 'будь-який'}
+
+       Використовуйте українську мову. Запропонуйте 3 КОНКРЕТНІ, УНІКАЛЬНІ ідеї подарунків з описами та приблизним ціновим діапазоном, що ВІДПОВІДАЮТЬ вказаному бюджету та приводу.
+       Кожен подарунок має бути представлений у такому форматі JSON:
+
+       {
+         "name": "Назва подарунка",
+         "description": "Детальний опис, чому цей подарунок підходить для цього приводу та людини",
+         "price_range": "$XX-$YY"
+       }
+
+       Поверніть відповідь ТІЛЬКИ як валідний JSON-масив, завжди українською мовою і без ДОДАТКОВОГО тексту:
+       [
+         { gift 1 },
+         { gift 2 },
+         { gift 3 }
+       ]
+     `;
+
+    console.log(`🧠 [${requestId}] Using local LLM for gift suggestions (Budget: ${budget}, Occasion: ${occasion})`);
     const formattedPrompt = formatMistralPrompt(systemPrompt, userPrompt);
     const result = await generateCompletion(formattedPrompt, {
-      temperature: 0.7,
-      maxTokens: 1000
+      temperature: 0.75, // Slightly higher for more variety
+      maxTokens: 1200 // Increased slightly
     });
 
     console.log(`[${requestId}] LLM gift suggestion raw response:`, result);
@@ -286,9 +297,10 @@ async function generateAiGifts(age, gender, interests, profession, requestId) {
         aiGifts = aiGifts.map((gift, index) => ({
           ...gift,
           id: -1000 - index,
-          ai_generated: true, // Keep this internal flag if needed
-          ai_suggested: true, // Flag for frontend
-          image_url: null
+          ai_generated: true,
+          ai_suggested: true,
+          image_url: null,
+          match_count: gift.match_count || 10 // Add default match_count if missing
         }));
 
         console.log(`[${requestId}] 📸 Fetching images for AI gifts...`);
@@ -322,14 +334,12 @@ async function generateAiGifts(age, gender, interests, profession, requestId) {
 
   } catch (error) {
     console.error(`[${requestId}] Background AI generation error:`, error.message);
-    // Ensure status is updated on error
     if (pendingAiSuggestions.has(requestId)) {
         pendingAiSuggestions.set(requestId, { status: 'error', error: error.message || 'Unknown AI generation error' });
     }
   }
 }
 
-// Image refresh endpoint
 app.get('/api/refresh-images', async (req, res) => {
   try {
     console.log('🔄 Refreshing gift images from Pexels');
@@ -385,91 +395,98 @@ app.get('/api/refresh-images', async (req, res) => {
   }
 });
 
+// --- Analyze User Input Helper (Updated) ---
 const analyzeUserInput = async (userInput) => {
-  const { age, gender, interests, profession } = userInput;
-  
-  const systemPrompt = `You are a gift recommendation assistant that analyzes user input to identify relevant tags.`;
-  
+  // Destructure new field: occasion
+  const { age, gender, interests, profession, occasion } = userInput;
+
+  // Updated System Prompt
+  const systemPrompt = `You are a gift recommendation assistant that analyzes user input to identify relevant tags, including occasion.`;
+
+  // Updated User Prompt
   const userPrompt = `
     I need to find appropriate gift tags for a person with these characteristics:
-    
+
     Age: ${age || 'not specified'}
     Gender: ${gender || 'not specified'}
     Interests/Hobbies: ${interests || 'not specified'}
     Profession: ${profession || 'not specified'}
-    
+    Occasion: ${occasion || 'any'}
+
     Extract relevant tags from our database categories:
-    
+
     Age tags: ["children", "teenagers", "young adults", "adults", "seniors"]
     Gender tags: ["male", "female", "unisex"]
     Interest tags: ["reading", "gaming", "cooking", "sports", "music", "art", "technology", "travel", "fashion", "fitness", "gardening", "photography"]
     Profession tags: ["student", "teacher", "programmer", "doctor", "artist", "engineer", "business"]
-    
-    Return your response as a valid JSON object with ONLY DATABASE CATEGORIES(dont just repeat the prompt, choose from what has been provided), even if
-    the characteristics from the prompt are very different from the ones that are in the database - choose one random from the database. always choose categories from the database.
-    and without ANY additional text:
+    Occasion tags: ["birthday", "christmas", "anniversary", "valentines", "graduation", "thank you", "any"]
+
+    Return your response as a valid JSON object with ONLY DATABASE CATEGORIES. Choose the most relevant tags.
+    If no specific occasion is mentioned or matches, use ["any"].
+    Always choose categories from the database, even if input is vague.
+    Return ONLY the JSON object without ANY additional text:
     {
       "ageTags": [relevant age tags],
       "genderTags": [relevant gender tags],
       "interestTags": [relevant interest tags],
-      "professionTags": [relevant profession tags]
+      "professionTags": [relevant profession tags],
+      "occasionTags": [relevant occasion tags or ["any"]]
     }
   `;
-  
+
   try {
     const formattedPrompt = formatMistralPrompt(systemPrompt, userPrompt);
     const result = await generateCompletion(formattedPrompt, {
-      temperature: 0.3,
-      maxTokens: 3000
+      temperature: 0.2, // Lower temp for more deterministic tag extraction
+      maxTokens: 400 // Should be enough for tags
     });
-    console.log("LLM response: ", result);
-    // Extract JSON from response
+    console.log("LLM tag analysis response: ", result);
     const jsonMatch = result.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       try {
-        return JSON.parse(jsonMatch[0]);
+        const parsed = JSON.parse(jsonMatch[0]);
+        // Ensure occasionTags exists and defaults to ['any'] if empty or missing
+        if (!parsed.occasionTags || !Array.isArray(parsed.occasionTags) || parsed.occasionTags.length === 0) {
+            parsed.occasionTags = ['any'];
+        }
+        return parsed;
       } catch (e) {
         console.error('Failed to parse LLM tag analysis as JSON:', e);
-        // Default fallback tags if parsing fails
-        return {
-          ageTags: age ? [determineAgeGroup(age)] : ["adults"],
-          genderTags: gender ? [gender.toLowerCase()] : ["unisex"],
-          interestTags: interests ? interests.toLowerCase().split(/,\s*/).slice(0, 3) : [],
-          professionTags: profession ? [profession.toLowerCase()] : []
-        };
       }
     }
-    
-    // If no JSON found, use basic tag extraction
+    // Fallback if LLM fails or JSON is bad
+    console.warn("LLM tag analysis failed, using fallback.");
     return {
       ageTags: age ? [determineAgeGroup(age)] : ["adults"],
       genderTags: gender ? [gender.toLowerCase()] : ["unisex"],
-      interestTags: interests ? interests.toLowerCase().split(/,\s*/).slice(0, 3) : [],
-      professionTags: profession ? [profession.toLowerCase()] : []
+      interestTags: interests ? interests.toLowerCase().split(/,\s*/).slice(0, 1) : [], // Limit fallback interests
+      professionTags: profession ? [profession.toLowerCase()] : [],
+      occasionTags: occasion ? [occasion.toLowerCase()] : ['any'] // Basic fallback for occasion
     };
   } catch (error) {
     console.error('Error in analyzeUserInput:', error);
-    // Simple fallback tags if LLM fails completely
+    // Fallback on complete error
     return {
       ageTags: age ? [determineAgeGroup(age)] : ["adults"],
       genderTags: gender ? [gender.toLowerCase()] : ["unisex"],
-      interestTags: interests ? interests.toLowerCase().split(/,\s*/).slice(0, 3) : [],
-      professionTags: profession ? [profession.toLowerCase()] : []
+      interestTags: interests ? interests.toLowerCase().split(/,\s*/).slice(0, 1) : [],
+      professionTags: profession ? [profession.toLowerCase()] : [],
+      occasionTags: ['any']
     };
   }
 };
 
-/**
- * Helper function to determine age group from numerical age
- */
+// Helper function to determine age group
 const determineAgeGroup = (age) => {
   const numAge = parseInt(age);
+  if (isNaN(numAge)) return "adults"; // Default if age is not a number
   if (numAge < 13) return "children";
   if (numAge < 18) return "teenagers";
   if (numAge < 30) return "young adults";
   if (numAge < 65) return "adults";
   return "seniors";
 };
+
 
 // Helper functions
 async function enrichGiftsWithImages(gifts) {
