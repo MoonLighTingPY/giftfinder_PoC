@@ -3,6 +3,7 @@ import axios from 'axios';
 import process from 'process';
 import dotenv from 'dotenv';
 import { translate } from '@vitalets/google-translate-api';
+import { formatMistralPrompt, generateCompletion } from './llamaService.js';
 
 dotenv.config();
 
@@ -10,27 +11,42 @@ const pexelsApiKey = process.env.VITE_PEXELS_API_KEY;
 const imageCache = new Map();
 const translationCache = new Map();
 
-
 // Helper function to translate Ukrainian to English
 export async function translateToEnglish(text) {
-  // Check cache first
+  // 0) Return cached translation
   if (translationCache.has(text)) {
-    console.log(`🔄 Using cached translation for "${text}"`);
-    return translationCache.get(text);
+    console.log(`🔄 Using cached translation for "${text}"`)
+    return translationCache.get(text)
   }
 
+  // 1) Try Google Translate
   try {
-    const result = await translate(text, { to: 'en' });
-    const translatedText = result.text;
-    
-    // Cache the result
-    translationCache.set(text, translatedText);
-    console.log(`✅ Translated: "${text}" → "${translatedText}"`);
-    
-    return translatedText;
-  } catch (error) {
-    console.error(`❌ Translation error for "${text}":`, error.message);
-    return null; // Return null on error
+    const result = await translate(text, { to: 'en' })
+    const translatedText = result.text.trim()
+    translationCache.set(text, translatedText)
+    console.log(`✅ Google translated "${text}" → "${translatedText}"`)
+    return translatedText
+  } catch (err) {
+    console.warn(`❌ Google translation failed for "${text}": ${err.message}`)
+  }
+
+  // 2) Fallback to local Llama
+  try {
+    console.log(`🤖 Llama translating "${text}" → English`)
+    const systemPrompt =
+      "You are a helpful assistant that translates Ukrainian to English. " +
+      "Reply with ONLY the translation (no extra text). " +
+      "If the input exceeds two words, produce a translation of at most two words. " +
+      "If the text is already English, return it unchanged.";
+    const prompt = formatMistralPrompt(systemPrompt, text)
+    const llamaResult = await generateCompletion(prompt, { temperature: 0, maxTokens: 100 })
+    const llamaTranslation = llamaResult.trim()
+    translationCache.set(text, llamaTranslation)
+    console.log(`✅ Llama translated "${text}" → "${llamaTranslation}"`)
+    return llamaTranslation
+  } catch (err) {
+    console.error(`❌ Llama translation failed for "${text}": ${err.message}`)
+    return null
   }
 }
 
@@ -47,7 +63,7 @@ const makePexelsRequest = async (url, params) => {
     if (error.response?.status === 429) {
       console.warn(`⚠️ Pexels Rate Limit Hit`);
       return [];
-    } 
+    }
   }
 };
 
@@ -71,7 +87,7 @@ export const searchImages = async (query, perPage = 1) => {
       return data.photos;
     }
 
-  // eslint-disable-next-line no-unused-vars
+    // eslint-disable-next-line no-unused-vars
   } catch (error) {
     // Error already logged in makePexelsRequest
     return []; // Return empty array on failure
@@ -93,7 +109,7 @@ export const getImageUrl = async (query, isEnglish) => {
     } else {
       console.log(`🔍 Searching for image with query: "${query}"`);
     }
-    
+
     // Use translated query for image search - only need 1 image
     let photos = await searchImages(query, 1);  // Changed from 15 to 1
 

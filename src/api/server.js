@@ -299,10 +299,19 @@ async function generateAiGifts(age, gender, interests, profession, budget, occas
     console.log(`🧠 [${requestId}] Using local LLM for gift suggestions (Budget: ${budget}, Occasion: ${occasion})`);
     const formatted = formatMistralPrompt(systemPrompt, userPrompt)
     const raw = await generateCompletion(formatted, { temperature: 0.75, maxTokens: 1200 })
-    const match = raw.match(/(\[[\s\S]*?\])/)
-    if (!match) throw new Error('No JSON array in LLM response')
-    const suggestions = JSON.parse(match[1])
-    console.log(`🧠 [${requestId}] LLM returned ${suggestions.length} gifts`)
+    // 1) Remove any [INST] tags
+    const cleaned = raw.replace(/\[\/?INST\]/g, '').trim();
+
+    // 2) Extract only the JSON array of objects
+    const jsonMatch = cleaned.match(/\[\s*\{[\s\S]*?\}\s*\]/);
+    if (!jsonMatch) {
+      console.error('🧠', requestId, 'LLM response did not contain a JSON array:', raw);
+      throw new Error('No valid JSON array in LLM response');
+    }
+
+    // 3) Parse suggestions
+    const suggestions = JSON.parse(jsonMatch[0]);
+    console.log(`🧠 [${requestId}] Parsed ${suggestions.length} suggestions from LLM`);
 
     // 3) Insert unique gifts
     const uniqueTags = [...new Set(allTags)]
