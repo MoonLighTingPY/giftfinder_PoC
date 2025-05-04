@@ -349,10 +349,6 @@ async function generateAiGifts(age, gender, interests, profession, budget, occas
 
 
 let isImageFetchingInProgress = false;
-const IMAGE_FETCH_DELAY = 500; // delay between Pexels calls
-
-// Helper function for delays (can be reused or imported)
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function fetchAndAssignImagesInBackground(force = false) {
   if (isImageFetchingInProgress) {
@@ -363,25 +359,31 @@ async function fetchAndAssignImagesInBackground(force = false) {
   console.log(`🔄 Starting background image fetch (Force: ${force})`);
 
   try {
-    const query = force
-      ? 'SELECT id, name FROM gifts WHERE name IS NOT NULL AND name != ""' // Ensure name exists
-      : 'SELECT id, name FROM gifts WHERE (image_url IS NULL OR image_url = "") AND name IS NOT NULL AND name != ""';
-
-    const [giftsToUpdate] = await pool.query(query);
+    // Select gifts that need images (or all if forced)
+    const sql = force
+      ? 'SELECT id, name, name_en FROM gifts WHERE name IS NOT NULL AND name != ""'
+      : 'SELECT id, name, name_en FROM gifts WHERE (image_url IS NULL OR image_url = "") AND name IS NOT NULL AND name != ""';
+    const [giftsToUpdate] = await pool.query(sql);
 
     if (giftsToUpdate.length === 0) {
       console.log('✅ No gifts require image fetching.');
       return;
     }
-
     console.log(`🔍 Found ${giftsToUpdate.length} gifts to fetch images for.`);
+
     let updatedCount = 0;
     let failedCount = 0;
 
     for (const gift of giftsToUpdate) {
       try {
         console.log(`⏳ Fetching image for "${gift.name}"...`);
-        const imageUrl = await getImageUrl(gift.name); // Uses the updated service with retry
+
+        // Prefer English name if available
+        const queryName = gift.name_en || gift.name;
+        const isEnglish = Boolean(gift.name_en && gift.name_en.trim());
+
+        // Call the Pexels service with the proper flag
+        const imageUrl = await getImageUrl(queryName, isEnglish);
 
         if (imageUrl) {
           await pool.query(
@@ -389,25 +391,23 @@ async function fetchAndAssignImagesInBackground(force = false) {
             [imageUrl, gift.id]
           );
           updatedCount++;
-          console.log(`✅ Assigned image for "${gift.name}"`);
+          console.log(`✅ Assigned image for "${queryName}".`);
         } else {
           failedCount++;
-          console.warn(`⚠️ Could not get image URL for "${gift.name}" after retries.`);
         }
-      } catch (error) { // Catch errors during DB update or unexpected getImageUrl errors
+      } catch (err) {
         failedCount++;
-        console.error(`❌ Error processing image for "${gift.name}":`, error.message);
-      } finally {
-        // IMPORTANT: Delay *between* processing each gift to respect rate limits
-        await delay(IMAGE_FETCH_DELAY);
+        console.error(`❌ Error processing image for "${gift.name}":`, err.message);
       }
+      // Optional delay to avoid rapid-fire requests:
+      await new Promise(res => setTimeout(res, 500));
     }
-    console.log(`✅ Background image fetch complete. Updated: ${updatedCount}, Failed/Skipped: ${failedCount}`);
 
-  } catch (error) {
-    console.error('❌ Fatal error during background image fetch:', error);
+    console.log(`✅ Background image fetch complete. Updated: ${updatedCount}, Failed: ${failedCount}`);
+  } catch (err) {
+    console.error('❌ Fatal error during background image fetch:', err);
   } finally {
-    isImageFetchingInProgress = false; // Ensure flag is reset
+    isImageFetchingInProgress = false;
     console.log('🔄 Background image fetch process finished.');
   }
 }
@@ -519,78 +519,84 @@ const determineAgeGroup = (age) => {
 
 
 // Helper functions
-async function enrichGiftsWithImages(gifts) {
+// src/api/server.js
+
+export async function enrichGiftsWithImages(gifts) {
   const enrichedGifts = [...gifts];
-  
-  // Process gifts without images (both DB and AI-generated)
+
   for (let i = 0; i < enrichedGifts.length; i++) {
     const gift = enrichedGifts[i];
-    
-    // Skip gifts that already have images
+
+    // Skip if already has an image
     if (gift.image_url) continue;
-    
+
+    // Prefer English name when available
+    const queryName = gift.name_en || gift.name;
+    const isEnglish = Boolean(gift.name_en && gift.name_en.trim());
+
     try {
-      // Use gift name to find an appropriate image
-      const imageUrl = await getImageUrl(gift.name);
-      enrichedGifts[i] = { ...gift, image_url: imageUrl };
-      console.log(`✅ Added missing image for "${gift.name}"`);
+      const imageUrl = await getImageUrl(queryName, isEnglish);
+      enrichedGifts[i] = {
+        ...gift,
+        image_url: imageUrl || null
+      };
     } catch (error) {
-      console.error(`❌ Could not find image for "${gift.name}":`, error.message);
-      // Keep the gift with null image_url
+      console.error(`❌ Could not find image for "${queryName}":`, error.message);
+      // leave gift.image_url as null
     }
   }
-  
+
   return enrichedGifts;
 }
 
 // Image initialization on startup
-(async () => {
+;(async () => {
   try {
     console.log('🚀 Server starting - checking for missing gift images');
-    
-    // Get all gifts WITHOUT images, including the English name
     const [giftsWithoutImages] = await pool.query(
       'SELECT id, name, name_en FROM gifts WHERE image_url IS NULL OR image_url = ""'
     );
-    
+
     if (giftsWithoutImages.length === 0) {
       console.log('✅ All gifts already have images - skipping image refresh');
       return;
     }
-    
+
     console.log(`🔍 Found ${giftsWithoutImages.length} gifts without images - fetching from Pexels`);
-    
     let updatedCount = 0;
+
     for (const gift of giftsWithoutImages) {
       try {
-        // Prefer the English variant if available
         const queryName = gift.name_en || gift.name;
-        const isEnglish = !!gift.name_en;
-        // Directly fetch image for the English name (no extra translate step)
+        const isEnglish = Boolean(gift.name_en && gift.name_en.trim());
         const imageUrl = await getImageUrl(queryName, isEnglish);
-        
-        await pool.query(
-          'UPDATE gifts SET image_url = ? WHERE id = ?',
-          [imageUrl, gift.id]
-        );
-        
-        updatedCount++;
-        console.log(`✅ Added image for "${queryName}"`);
+
+        if (imageUrl) {
+          await pool.query(
+            'UPDATE gifts SET image_url = ? WHERE id = ?',
+            [imageUrl, gift.id]
+          );
+          updatedCount++;
+          console.log(`✅ Added image for "${queryName}"`);
+        } else {
+          console.warn(`⚠️ No image for "${queryName}" (rate‑limited or not found), skipping.`);
+        }
       } catch (error) {
-        console.error(`❌ Failed to add image for "${gift.name}" (using "${gift.name_en}"):`, error);
+        console.error(`❌ Failed to add image for "${gift.name}" (using "${gift.name_en}")`, error);
       }
     }
-    
+
     console.log(`✅ Added images for ${updatedCount} out of ${giftsWithoutImages.length} gifts`);
   } catch (error) {
     console.error('❌ Error during initial image check:', error);
   }
 })();
 
+// periodic retry unchanged...
 setInterval(async () => {
   console.log('⏳ Periodic retry to fetch missing images…');
   try {
-    await fetchAndAssignImagesInBackground(/* force = */ false);
+    await fetchAndAssignImagesInBackground(false);
   } catch (err) {
     console.error('Periodic image fetch failed:', err);
   }
