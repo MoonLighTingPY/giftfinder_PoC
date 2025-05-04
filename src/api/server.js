@@ -5,8 +5,8 @@ import mysql from 'mysql2/promise';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import process from 'process';
-import { getImageUrl } from '../services/pexelsService.js';
 import { generateCompletion, formatMistralPrompt } from '../services/llamaService.js';
+import { translateToEnglish, getImageUrl } from '../services/pexelsService.js'
 
 dotenv.config();
 
@@ -288,7 +288,7 @@ async function generateAiGifts(age, gender, interests, profession, budget, occas
          "price_range": "$XX-$YY"
        }
 
-       Поверніть відповідь ТІЛЬКИ як валідний JSON-масив, завжди українською мовою і без ДОДАТКОВОГО тексту, у такому форматі:
+       Поверніть відповідь ТІЛЬКИ як валідний JSON-масив, завжди українською мовою і без ДОДАТКОВОГО тексту, у такому і ТІЛЬКИ ТАКОМУ форматі (не забувай про [ ] на початку та в кінці):
        [
          { gift 1 },
          { gift 2 },
@@ -296,21 +296,22 @@ async function generateAiGifts(age, gender, interests, profession, budget, occas
        ]
      `;
 
-    console.log(`🧠 [${requestId}] Using local LLM for gift suggestions (Budget: ${budget}, Occasion: ${occasion})`);
-    const formatted = formatMistralPrompt(systemPrompt, userPrompt)
-    const raw = await generateCompletion(formatted, { temperature: 0.75, maxTokens: 1200 })
-    // 1) Remove any [INST] tags
+    console.log(`🧠 [${requestId}] Calling LLM for gift suggestions`);
+    const formatted = formatMistralPrompt(systemPrompt, userPrompt);
+    const raw = await generateCompletion(formatted, { temperature: 0.75, maxTokens: 1200 });
+
+    // 2a) Strip any [INST] tags
     const cleaned = raw.replace(/\[\/?INST\]/g, '').trim();
 
-    // 2) Extract only the JSON array of objects
-    const jsonMatch = cleaned.match(/\[\s*\{[\s\S]*?\}\s*\]/);
-    if (!jsonMatch) {
-      console.error('🧠', requestId, 'LLM response did not contain a JSON array:', raw);
-      throw new Error('No valid JSON array in LLM response');
+    // 2b) Try JSON array, else fallback to individual {…} blocks
+    let suggestions;
+    const arrayMatch = cleaned.match(/\[\s*\{[\s\S]*?\}\s*\]/);
+    if (arrayMatch) {
+      suggestions = JSON.parse(arrayMatch[0]);
+    } else {
+      const objMatches = cleaned.match(/\{[\s\S]*?\}/g) || [];
+      suggestions = objMatches.map(str => JSON.parse(str));
     }
-
-    // 3) Parse suggestions
-    const suggestions = JSON.parse(jsonMatch[0]);
     console.log(`🧠 [${requestId}] Parsed ${suggestions.length} suggestions from LLM`);
 
     // 3) Insert unique gifts
@@ -329,10 +330,19 @@ async function generateAiGifts(age, gender, interests, profession, budget, occas
       }
 
       // 3c) fetch image (skip re‑translate)
+      // translate once
+      let name_en = null
+      try {
+        name_en = await translateToEnglish(gift.name)
+      } catch {
+        console.warn(`⚠️ [${requestId}] Translation failed for "${gift.name}"`)
+      }
+
+      // fetch image
       let image_url = null
       try {
-        const queryName = gift.name
-        image_url = await getImageUrl(queryName, false)
+        const queryName = name_en || gift.name
+        image_url = await getImageUrl(queryName, Boolean(name_en))
       } catch {
         console.warn(`⚠️ [${requestId}] No image for "${gift.name}"`)
       }
@@ -347,7 +357,7 @@ async function generateAiGifts(age, gender, interests, profession, budget, occas
         `INSERT INTO gifts
           (name, name_en, description, price_range, budget_min, budget_max, image_url)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [gift.name, null, gift.description, gift.price_range, budget_min, budget_max, image_url]
+        [gift.name, name_en, gift.description, gift.price_range, budget_min, budget_max, image_url]
       )
       const newId = ins.insertId
       console.log(`✅ [${requestId}] Inserted "${gift.name}" (id=${newId})`)
@@ -373,8 +383,8 @@ async function generateAiGifts(age, gender, interests, profession, budget, occas
       // 3g) collect for response
       aiGifts.push({
         id: newId,
-        name: gift.name,
-        name_en: null,
+        name: name_en,
+        name_en: name_en,
         description: gift.description,
         price_range: gift.price_range,
         budget_min,
