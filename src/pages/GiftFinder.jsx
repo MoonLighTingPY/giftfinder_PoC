@@ -13,6 +13,7 @@ const GiftFinder = () => {
   const token = useSelector(state => state.auth.token);
   const [aiStatus, setAiStatus] = useState(null); // 'generating', 'completed', 'error', null
   const [requestId, setRequestId] = useState(null);
+  const [submittedCriteria, setSubmittedCriteria] = useState(null);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -27,6 +28,7 @@ const GiftFinder = () => {
     setRequestId(null); // Reset request ID
     setError('');
     setIsSearching(true); // Set searching state to true
+    setSubmittedCriteria(recipientInfo);
 
     try {
       console.log('Sending request with:', recipientInfo);
@@ -197,17 +199,16 @@ const GiftFinder = () => {
           {gifts.length > 0 && <h2>Рекомендовані подарунки</h2>}
 
           {/* Recommendation note can be shown if gifts exist */}
-          {gifts.length > 0 && (
+          {submittedCriteria && gifts.length > 0 && ( // Check if submittedCriteria exists
              <p className="recommendation-note">
                Підібрано на основі ваших критеріїв:
-               {recipientInfo.age && ` вік (${recipientInfo.age}),`}
-               {/* ... other criteria */}
-                {recipientInfo.gender && ` стать (${
-                  recipientInfo.gender === 'male' ? 'чоловіча' :
-                  recipientInfo.gender === 'female' ? 'жіноча' : 'інша'
+               {submittedCriteria.age && ` вік (${submittedCriteria.age}),`}
+               {submittedCriteria.gender && ` стать (${
+                  submittedCriteria.gender === 'male' ? 'чоловіча' :
+                  submittedCriteria.gender === 'female' ? 'жіноча' : 'інша'
                 }),`}
-                {recipientInfo.interests && ` інтереси (${recipientInfo.interests}),`}
-                {recipientInfo.profession && ` професія (${recipientInfo.profession})`}
+               {submittedCriteria.interests && ` інтереси (${submittedCriteria.interests}),`}
+               {submittedCriteria.profession && ` професія (${submittedCriteria.profession})`}
              </p>
           )}
 
