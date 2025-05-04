@@ -193,8 +193,8 @@ app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
       LIMIT 8
     `;
     
-    console.log('SQL query:', query);
-    console.log('Query params:', queryParams);
+    // console.log('SQL query:', query);
+    // console.log('Query params:', queryParams);
     
     // Execute the query
     const [dbGifts] = await pool.query(query, queryParams);
@@ -221,7 +221,7 @@ app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
         "match_count": 10
       }
       
-      Return your answer ONLY as a valid JSON array:
+      Return your answer ONLY as a valid JSON array, always in Ukrainian language and at all costs without ANY additional text:
       [
         { gift 1 },
         { gift 2 },
@@ -236,16 +236,17 @@ app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
       const formattedPrompt = formatMistralPrompt(systemPrompt, userPrompt);
       const result = await generateCompletion(formattedPrompt, {
         temperature: 0.7,
-        maxTokens: 500
+        maxTokens: 3000
       });
       
       console.log('LLM gift suggestion response length:', result.length);
+      console.log('LLM gift suggestion response:', result);
       
       // Extract JSON from text response
-      const jsonMatch = result.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
+      const jsonMatch = result.match(/(\[[\s\S]*?\])/);
+      if (jsonMatch && jsonMatch[1]) {
         try {
-          aiGifts = JSON.parse(jsonMatch[0]);
+          aiGifts = JSON.parse(jsonMatch[1]);
           
           // Ensure all AI gifts have an ID (negative to distinguish from DB gifts)
           aiGifts = aiGifts.map((gift, index) => ({
@@ -373,7 +374,9 @@ const analyzeUserInput = async (userInput) => {
     Interest tags: ["reading", "gaming", "cooking", "sports", "music", "art", "technology", "travel", "fashion", "fitness", "gardening", "photography"]
     Profession tags: ["student", "teacher", "programmer", "doctor", "artist", "engineer", "business"]
     
-    Return your response as a valid JSON object with these categories:
+    Return your response as a valid JSON object with ONLY DATABASE CATEGORIES(dont just repeat the prompt, choose from what has been provided), even if
+    the characteristics from the prompt are very different from the ones that are in the database - choose one random from the database. always choose categories from the database.
+    and without ANY additional text:
     {
       "ageTags": [relevant age tags],
       "genderTags": [relevant gender tags],
@@ -386,9 +389,9 @@ const analyzeUserInput = async (userInput) => {
     const formattedPrompt = formatMistralPrompt(systemPrompt, userPrompt);
     const result = await generateCompletion(formattedPrompt, {
       temperature: 0.3,
-      maxTokens: 300
+      maxTokens: 3000
     });
-    
+    console.log("LLM response: ", result);
     // Extract JSON from response
     const jsonMatch = result.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
