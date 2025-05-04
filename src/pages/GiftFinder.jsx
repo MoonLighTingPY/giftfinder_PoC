@@ -8,7 +8,6 @@ const GiftFinder = () => {
   const [recipientInfo, setRecipientInfo] = useState({}); // Recipient information
   const [gifts, setGifts] = useState([]); // Combined list for display
   const [dbGifts, setDbGifts] = useState([]); // Store DB gifts separately for merging
-  const [loading, setLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false); // New state for overall search process
   const [error, setError] = useState('');
   const token = useSelector(state => state.auth.token);
@@ -22,12 +21,12 @@ const GiftFinder = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true); // Start loading for initial request
     setGifts([]);      // Clear previous results
     setDbGifts([]);    // Clear previous DB results
     setAiStatus(null); // Reset AI status
     setRequestId(null); // Reset request ID
     setError('');
+    setIsSearching(true); // Set searching state to true
 
     try {
       console.log('Sending request with:', recipientInfo);
@@ -91,7 +90,7 @@ const GiftFinder = () => {
             clearInterval(intervalId);
             setAiStatus('completed');
             const aiGeneratedGifts = response.data.gifts || [];
-            setGifts([...dbGifts, ...aiGeneratedGifts]);
+            setGifts([...aiGeneratedGifts, ...dbGifts]);
             setIsSearching(false); // Stop "searching" when AI is done
           } else if (response.data.status === 'error') {
             clearInterval(intervalId);
@@ -190,8 +189,8 @@ const GiftFinder = () => {
       )}
 
       {/* Display gifts container if loading is finished AND we have gifts OR AI is generating */}
-      {(gifts.length > 0 || aiStatus === 'generating') && !error ? (
-        <div className="gifts-container">
+      {(!isSearching && gifts.length > 0) || aiStatus === 'generating' ? (
+          <div className="gifts-container">
           {/* Show header only if there are gifts */}
           {gifts.length > 0 && <h2>Рекомендовані подарунки</h2>}
 
@@ -213,57 +212,62 @@ const GiftFinder = () => {
 
           {/* Show AI generation status message */}
           {aiStatus === 'generating' && (
-            <div className="ai-generating-message">
-              <p>ШІ генерує додаткові подарунки...</p>
-            </div>
-          )}
+              <div className="ai-generating-message">
+                <p>ШІ генерує додаткові подарунки...</p>
+              </div>
+            )}
 
           {/* Render the gift list */}
           {gifts.length > 0 ? (
-             <div className="gift-list">
-            {gifts.map((gift) => (
-              <div key={gift.id} className={`gift-card ${gift.ai_suggested ? 'ai-suggested' : ''}`}>
-                {gift.ai_suggested && (
-                  <div className="ai-badge">AI</div>
-                )}
-                {gift.image_url ? (
-                  <div className="gift-image">
-                    <img
-                      src={gift.image_url}
-                      alt={gift.name}
-                      onError={(e) => {
-                        console.error(`Failed to load image: ${e.target.src}`);
-                        e.target.style.display = 'none'; // Hide broken image
-                        const parent = e.target.parentNode;
-                        if (parent && !parent.querySelector('.no-image-placeholder')) {
-                           const placeholder = document.createElement('div');
-                           placeholder.className = 'no-image no-image-placeholder';
-                           placeholder.innerHTML = '<span>Зображення відсутнє</span>';
-                           parent.appendChild(placeholder);
-                        }
-                      }}
-                    />
-                  </div>
-                ) : (
-                  // Corrected: Only the placeholder div
-                  <div className="gift-image no-image">
-                    <span>Зображення відсутнє</span>
-                  </div>
-                )}
-                <div className="gift-info">
-                  <h3>{gift.name}</h3>
-                  <p>{gift.description}</p>
-                  <span className="price-range">{gift.price_range}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : (
-        // Show loading message only if loading is true
-        isSearching && <p>Шукаємо ідеальні подарунки...</p>
-      )}
-    </div>
+               <div className="gift-list">
+                 {gifts.map((gift) => (
+                   <div key={gift.id} className={`gift-card ${gift.ai_suggested ? 'ai-suggested' : ''}`}>
+                     {/* ... gift card content ... */}
+                      {gift.ai_suggested && (
+                        <div className="ai-badge">AI</div>
+                      )}
+                      {gift.image_url ? (
+                        <div className="gift-image">
+                          <img
+                            src={gift.image_url}
+                            alt={gift.name}
+                            onError={(e) => {
+                              console.error(`Failed to load image: ${e.target.src}`);
+                              e.target.style.display = 'none'; // Hide broken image
+                              const parent = e.target.parentNode;
+                              if (parent && !parent.querySelector('.no-image-placeholder')) {
+                                 const placeholder = document.createElement('div');
+                                 placeholder.className = 'no-image no-image-placeholder';
+                                 placeholder.innerHTML = '<span>Зображення відсутнє</span>';
+                                 parent.appendChild(placeholder);
+                              }
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div className="gift-image no-image">
+                          <span>Зображення відсутнє</span>
+                        </div>
+                      )}
+                      <div className="gift-info">
+                        <h3>{gift.name}</h3>
+                        <p>{gift.description}</p>
+                        <span className="price-range">{gift.price_range}</span>
+                      </div>
+                   </div>
+                 ))}
+               </div>
+            ) : (
+               aiStatus === 'generating' && <p>База даних не містить відповідних подарунків, очікуємо на ШІ...</p>
+            )}
+          </div> // End gifts-container
+        ) : (
+          // Show the main "Searching..." message only when isSearching is true AND no results yet
+          isSearching && <p>Шукаємо ідеальні подарунки...</p>
+        )}
+
+      {/* The rest of the component return continues after this */}
+    </div> // End container
   );
 };
 
