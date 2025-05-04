@@ -1,269 +1,330 @@
+/* src/styles/pages/GiftFinder.css */
+
+/* --- General Container --- */
 .container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 2rem;
-  }
-  
-  .container h1 {
-    text-align: center;
-    margin-bottom: 2rem;
-    color: #333;
-  }
-  
-  .gift-form {
-    max-width: 800px;
-    margin: 0 auto 3rem;
-    background: white;
-    border-radius: 8px;
-    padding: 2rem;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-  }
-  
-  .form-group {
-    margin-bottom: 1.5rem;
-  }
-  
-  .form-group label {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 500;
-    color: #444;
-  }
-  
-  .form-group input,
-  .form-group select,
-  .form-group textarea {
-    width: 100%;
-    padding: 0.75rem;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 1rem;
-    transition: border-color 0.3s;
-  }
-  
-  .form-group textarea {
-    height: 100px;
-    resize: vertical;
-  }
-  
-  .form-group input:focus,
-  .form-group select:focus,
-  .form-group textarea:focus {
-    border-color: #646cff;
-    outline: none;
-  }
-  
-  .gift-form button {
-    display: block;
-    width: 100%;
-    background-color: #646cff;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    padding: 0.75rem;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 0.3s;
-  }
-  
-  .gift-form button:hover {
-    background-color: #535bf2;
-  }
-  
-  .gift-form button:disabled {
-    background-color: #b2b2b2;
-    cursor: not-allowed;
-  }
-  
-  .gifts-container {
-    margin-top: 3rem;
-  }
-  
-  .gifts-container h2 {
-    text-align: center;
-    margin-bottom: 2rem;
-    color: #333;
-  }
-  
-  .gift-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 2rem;
-  }
-  
-  .gift-card {
-    background: white;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    transition: transform 0.3s;
-    display: flex;
-    flex-direction: column;
-  }
-  
-  .gift-card:hover {
-    transform: translateY(-5px);
-  }
-  
-  .gift-image {
-    position: relative;
-    width: 100%;
-    height: 220px;
-    overflow: hidden;
-  }
-  
-  .gift-image img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: transform 0.5s;
-  }
-  
-  .gift-card:hover .gift-image img {
-    transform: scale(1.05);
-  }
-  
-  .gift-image.loading {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background-color: #f0f0f0;
-  }
-  
-  .gift-info {
-    padding: 1rem;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-  }
-  
-  .gift-info h3 {
-    margin-top: 0;
-    margin-bottom: 0.5rem;
-    color: #333;
-  }
-  
-  .gift-info p {
-    color: #666;
-    margin-bottom: 1rem;
-    flex: 1;
-  }
-  
-  .gift-info .price-range {
-    font-weight: 600;
-    color: #646cff;
-    align-self: flex-start;
-  }
+  max-width: 1200px;
+  margin: 1rem auto 3rem; /* Adjust margin */
+  padding: 1rem 2rem; /* Add horizontal padding */
+}
 
-  .error-message {
-    background-color: #ffebee;
-    color: #c62828;
-    padding: 1rem;
-    border-radius: 4px;
-    margin: 1rem auto;
-    max-width: 800px;
-    text-align: center;
-  }
+.container h1 {
+  text-align: center;
+  margin-bottom: 2.5rem; /* Increased margin */
+  color: #2c3e50; /* Darker heading color */
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
 
-  .recommendation-note {
-    text-align: center;
-    color: #666;
-    margin-bottom: 2rem;
-    font-style: italic;
-  }
+/* --- Gift Form Styling --- */
+.gift-form {
+  max-width: 700px; /* Slightly narrower */
+  margin: 0 auto 4rem; /* Increased bottom margin */
+  background: #ffffff;
+  border-radius: 12px; /* More rounded corners */
+  padding: 2.5rem 3rem; /* Increased padding */
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08); /* Softer, larger shadow */
+  border: 1px solid #e0e0e0; /* Subtle border */
+}
 
-  .gift-image.no-image {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background-color: #f0f0f0;
-    color: #666;
-    font-style: italic;
-    height: 100%;
-  }
+.form-group {
+  margin-bottom: 1.8rem; /* Increased spacing */
+}
 
-  .no-image {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100%;
-    background-color: #f0f0f0;
-    color: #666;
-    font-style: italic;
-  }
+.form-group label {
+  display: block;
+  margin-bottom: 0.6rem; /* Increased spacing */
+  font-weight: 600; /* Bolder labels */
+  color: #34495e; /* Slightly different color */
+  font-size: 0.95rem;
+}
 
-  .gift-card.ai-suggested {
-    border: 2px solid #aa1cff;
-    position: relative;
-  }
-  
-  .ai-badge {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    background-color: #aa1cff;
-    color: white;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 0.8rem;
-    font-weight: bold;
-    z-index: 5;
-  }
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 0.85rem 1rem; /* Adjusted padding */
+  border: 1px solid #ced4da; /* Lighter border */
+  border-radius: 6px; /* Slightly more rounded */
+  font-size: 1rem;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease; /* Added box-shadow transition */
+  background-color: #f8f9fa; /* Very light background */
+}
 
-  .ai-generating-message {
-    text-align: center;
-    margin: 1.5rem auto; /* Center horizontally and add more margin */
-    padding: 1rem 1.5rem;
-    background-color: #eef2ff; /* Lighter blue */
-    border-radius: 6px;
-    font-style: italic;
-    color: #4f46e5; /* Indigo color */
-    max-width: 400px; /* Limit width */
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    animation: pulse 1.8s infinite ease-in-out;
-  }
-  
-  .ai-generating-message p {
-    margin: 0;
-    font-weight: 500;
-  }
-  
-  /* New Initial Searching Message Style */
-  .initial-searching-message {
-    text-align: center;
-    margin: 3rem auto; /* More prominent margin */
-    padding: 1.5rem;
-    font-size: 1.1rem;
-    color: #555;
-    font-weight: 500;
-    display: flex; /* Use flex for alignment */
-    justify-content: center;
-    align-items: center;
-    gap: 0.5rem; /* Space between text and spinner */
-  }
-  
-  /* Optional: Add a simple spinner */
-  .initial-searching-message::before {
-    content: '';
-    display: inline-block;
-    width: 20px;
-    height: 20px;
-    border: 3px solid rgba(100, 108, 255, 0.3); /* Lighter border */
-    border-radius: 50%;
-    border-top-color: #646cff; /* Main color for spinner top */
-    animation: spin 1s linear infinite;
-  }
-  
-  /* Spinner Animation */
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-  
-  /* Keep or adjust pulse animation */
-  @keyframes pulse {
-    0%, 100% { opacity: 0.8; transform: scale(1); }
-    50% { opacity: 1; transform: scale(1.02); }
-  }
+.form-group textarea {
+  min-height: 120px; /* Taller textarea */
+  resize: vertical;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: #646cff;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(100, 108, 255, 0.15); /* Focus ring */
+  background-color: #fff;
+}
+
+.gift-form button {
+  display: block;
+  width: 100%;
+  background: linear-gradient(45deg, #646cff, #aa1cff); /* Gradient background */
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.9rem 1rem; /* Increased padding */
+  font-size: 1.1rem; /* Larger font */
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease; /* Smooth transition for hover */
+  box-shadow: 0 4px 10px rgba(100, 108, 255, 0.2);
+}
+
+.gift-form button:hover {
+  background: linear-gradient(45deg, #535bf2, #990bdb); /* Darker gradient */
+  box-shadow: 0 6px 12px rgba(100, 108, 255, 0.3);
+  transform: translateY(-2px); /* Slight lift on hover */
+}
+
+.gift-form button:disabled {
+  background: #c5c8d3; /* Greyed out */
+  box-shadow: none;
+  transform: none;
+  cursor: not-allowed;
+}
+
+/* --- Gifts Container & List --- */
+.gifts-container {
+  margin-top: 4rem; /* More space above gifts */
+}
+
+.gifts-container h2 {
+  text-align: center;
+  margin-bottom: 2.5rem; /* Increased margin */
+  color: #2c3e50;
+  font-weight: 700;
+}
+
+.gift-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); /* Responsive columns */
+  gap: 2.5rem; /* Increased gap */
+}
+
+/* --- Gift Card Styling --- */
+.gift-card {
+  background: #ffffff;
+  border-radius: 10px; /* More rounded */
+  overflow: hidden;
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.07); /* Refined shadow */
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #eee; /* Subtle border */
+}
+
+.gift-card:hover {
+  transform: translateY(-8px); /* More lift */
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.gift-image {
+  position: relative;
+  width: 100%;
+  padding-top: 75%; /* Aspect ratio 4:3 */
+  overflow: hidden;
+  background-color: #f0f0f0; /* Placeholder background */
+}
+
+.gift-image img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* Ensure image covers the area */
+  transition: transform 0.4s ease;
+}
+
+.gift-card:hover .gift-image img {
+  transform: scale(1.08); /* Slightly larger zoom */
+}
+
+/* Placeholder for missing images */
+.gift-image.no-image,
+.no-image-placeholder { /* Target dynamically added placeholder too */
+  position: absolute; /* Ensure it fills the container */
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #e9ecef; /* Lighter grey */
+  color: #868e96; /* Muted text color */
+  font-style: italic;
+  font-size: 0.9rem;
+}
+.no-image span,
+.no-image-placeholder span {
+  text-align: center;
+  padding: 1rem;
+}
+
+
+.gift-info {
+  padding: 1.2rem 1.5rem; /* Increased padding */
+  flex: 1; /* Allow info to grow */
+  display: flex;
+  flex-direction: column;
+}
+
+.gift-info h3 {
+  margin-top: 0;
+  margin-bottom: 0.7rem; /* More space below title */
+  color: #343a40; /* Darker title */
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.gift-info p {
+  color: #495057; /* Slightly darker text */
+  margin-bottom: 1.2rem; /* More space below description */
+  flex-grow: 1; /* Push price to bottom */
+  line-height: 1.6;
+  font-size: 0.95rem;
+}
+
+.gift-info .price-range {
+  font-weight: 700; /* Bolder price */
+  color: #646cff;
+  align-self: flex-start; /* Keep at start */
+  font-size: 1.05rem;
+  margin-top: auto; /* Push to bottom */
+}
+
+/* --- AI Badge & Status Messages --- */
+.gift-card.ai-suggested {
+  border: 2px solid #aa1cff;
+  position: relative;
+}
+
+.ai-badge {
+  position: absolute;
+  top: 12px; /* Adjusted position */
+  right: 12px;
+  background: linear-gradient(45deg, #aa1cff, #8a00d4); /* Gradient badge */
+  color: white;
+  padding: 5px 10px; /* Slightly larger */
+  border-radius: 5px;
+  font-size: 0.85rem; /* Slightly larger */
+  font-weight: 600; /* Bolder */
+  z-index: 5;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Enhanced AI Generating Message */
+.ai-generating-message { /* Renamed from initial-searching-message for clarity */
+  text-align: center;
+  margin: 2rem auto;
+  padding: 1rem 1.5rem;
+  background-color: #eef2ff;
+  border-left: 4px solid #646cff; /* Accent border */
+  border-radius: 6px;
+  font-style: normal; /* Remove italic */
+  color: #434c9c; /* Darker blue text */
+  max-width: 450px;
+  box-shadow: 0 2px 8px rgba(100, 108, 255, 0.1);
+  animation: pulse 2s infinite ease-in-out;
+  display: flex; /* Align icon and text */
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+}
+/* Add an icon (requires a font library like FontAwesome or an SVG) */
+/* .ai-generating-message::before { content: '\f2dc'; font-family: 'Font Awesome 5 Free'; font-weight: 900; margin-right: 0.5rem; } */
+
+.ai-generating-message p {
+  margin: 0;
+  font-weight: 500;
+}
+
+/* Enhanced Initial Searching Message Style */
+.initial-searching-message {
+  text-align: center;
+  margin: 4rem auto; /* More vertical margin */
+  padding: 1.5rem;
+  font-size: 1.15rem; /* Slightly larger */
+  color: #495057; /* Darker grey */
+  font-weight: 500;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+/* Spinner for Initial Search */
+.initial-searching-message::before {
+  content: '';
+  display: inline-block;
+  width: 24px; /* Larger spinner */
+  height: 24px;
+  border: 4px solid rgba(100, 108, 255, 0.2); /* Lighter border */
+  border-radius: 50%;
+  border-top-color: #646cff;
+  animation: spin 1s linear infinite;
+}
+
+/* --- Other Styles --- */
+.error-message {
+  background-color: #fff0f1; /* Lighter red */
+  color: #d94854; /* Darker red text */
+  padding: 1rem 1.5rem;
+  border-radius: 6px;
+  margin: 1.5rem auto;
+  max-width: 700px;
+  text-align: center;
+  border: 1px solid #ffccd0; /* Subtle border */
+  font-weight: 500;
+}
+
+.recommendation-note {
+  text-align: center;
+  color: #6c757d; /* Muted grey */
+  margin-bottom: 2.5rem;
+  font-style: italic;
+  font-size: 0.95rem;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* --- Animations --- */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.85; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.01); }
+}
+
+/* --- Responsiveness --- */
+@media (max-width: 768px) {
+  .container { padding: 1rem; }
+  .gift-form { padding: 2rem 1.5rem; }
+  .gift-list { gap: 1.5rem; }
+  .gift-card { border-radius: 8px; }
+  .gift-image { padding-top: 100%; } /* Square images on smaller screens */
+}
+
+@media (max-width: 480px) {
+  .container h1 { font-size: 1.8rem; margin-bottom: 2rem; }
+  .gift-form { padding: 1.5rem; }
+  .gift-form button { font-size: 1rem; padding: 0.8rem; }
+  .gift-list { grid-template-columns: 1fr; gap: 1.5rem; } /* Single column */
+  .gift-info { padding: 1rem; }
+  .gift-info h3 { font-size: 1.05rem; }
+  .gift-info p { font-size: 0.9rem; }
+  .ai-generating-message, .initial-searching-message { font-size: 1rem; padding: 0.8rem 1rem; }
+}
