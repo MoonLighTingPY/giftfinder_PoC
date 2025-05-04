@@ -39,7 +39,7 @@ async function translateToEnglish(text) {
 
 // Helper to make cancellable Pexels requests with retry
 const makePexelsRequest = async (url, params, attempt = 1) => {
-  const MAX_RETRIES = 5;
+  const MAX_RETRIES = 1;
   const RETRY_DELAY = 20000; // 20 seconds delay on retry
 
   try {
@@ -120,17 +120,22 @@ export const searchImages = async (query, perPage = 1) => {
   }
 };
 
-export const getImageUrl = async (query) => {
+export const getImageUrl = async (query, isEnglish) => {
   try {
     // Translate the query from Ukrainian to English
-    const translatedQuery = await translateToEnglish(query);
+    if (!isEnglish) {
+      console.log(`🌐 Translating "${query}" to English for image search`);
+      query = await translateToEnglish(query);
+    } else {
+      console.log(`🔍 Searching for image with query: "${query}"`);
+    }
     
     // Use translated query for image search - only need 1 image
-    let photos = await searchImages(translatedQuery, 1);  // Changed from 15 to 1
+    let photos = await searchImages(query, 1);  // Changed from 15 to 1
 
     // If we got a result, use it
     if (photos && photos.length > 0) {
-      console.log(`🖼️ Using image for "${translatedQuery}": ${photos[0].src.medium}`);
+      console.log(`🖼️ Using image for "${query}": ${photos[0].src.medium}`);
       return photos[0].src.medium;  // Just use the first one directly
     }
 

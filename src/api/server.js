@@ -548,8 +548,10 @@ async function enrichGiftsWithImages(gifts) {
   try {
     console.log('🚀 Server starting - checking for missing gift images');
     
-    // Get all gifts WITHOUT images
-    const [giftsWithoutImages] = await pool.query('SELECT id, name FROM gifts WHERE image_url IS NULL OR image_url = ""');
+    // Get all gifts WITHOUT images, including the English name
+    const [giftsWithoutImages] = await pool.query(
+      'SELECT id, name, name_en FROM gifts WHERE image_url IS NULL OR image_url = ""'
+    );
     
     if (giftsWithoutImages.length === 0) {
       console.log('✅ All gifts already have images - skipping image refresh');
@@ -558,23 +560,24 @@ async function enrichGiftsWithImages(gifts) {
     
     console.log(`🔍 Found ${giftsWithoutImages.length} gifts without images - fetching from Pexels`);
     
-    // For each gift without an image, fetch a new image from Pexels
     let updatedCount = 0;
-    
     for (const gift of giftsWithoutImages) {
       try {
-        const imageUrl = await getImageUrl(gift.name);
+        // Prefer the English variant if available
+        const queryName = gift.name_en || gift.name;
+        const isEnglish = !!gift.name_en;
+        // Directly fetch image for the English name (no extra translate step)
+        const imageUrl = await getImageUrl(queryName, isEnglish);
         
-        // Update the gift with the new image URL
         await pool.query(
           'UPDATE gifts SET image_url = ? WHERE id = ?',
           [imageUrl, gift.id]
         );
         
         updatedCount++;
-        console.log(`✅ Added image for "${gift.name}"`);
+        console.log(`✅ Added image for "${queryName}"`);
       } catch (error) {
-        console.error(`❌ Failed to add image for "${gift.name}":`, error);
+        console.error(`❌ Failed to add image for "${gift.name}" (using "${gift.name_en}"):`, error);
       }
     }
     
