@@ -75,7 +75,8 @@ const GiftFinder = () => {
       const payload = {
         ...recipientInfo,
         budget: budgetToSend,
-        useAi
+        useAi,
+        aiGiftCount: parseInt(recipientInfo.aiGiftCount || 3)
       };
 
       const response = await axios.post(
@@ -248,6 +249,22 @@ const GiftFinder = () => {
             <span className="slider" />
           </label>
           <span className="toggle-label">Використовувати генерацію AI</span>
+          <div className="form-group">
+            <label>Кількість AI подарунків:</label>
+            <select
+              name="aiGiftCount"
+              value={recipientInfo.aiGiftCount}
+              onChange={handleChange}
+              disabled={!useAi}
+            >
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="5">5</option>
+              <option value="7">7</option>
+              <option value="10">10</option>
+            </select>
+          </div>
         </div>
       </form>
 

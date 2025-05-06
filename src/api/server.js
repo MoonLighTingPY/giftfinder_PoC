@@ -122,7 +122,7 @@ app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
   const requestId = Date.now().toString() + Math.random().toString(36).slice(2);
 
   try {
-    const { age, gender, interests, profession, budget, occasion, useAi } = req.body;
+    const { age, gender, interests, profession, budget, occasion, useAi, aiGiftCount = 3 } = req.body;
 
     // Parse budget into min/max values
     let budgetMin = 0;
@@ -181,7 +181,8 @@ app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
         budget,
         occasion,
         existingGifts: enrichedGifts,
-        requestId
+        requestId,
+        giftCount: aiGiftCount
       }).catch(err => {
         console.error(`AI gift generation error: ${err.message}`);
         pendingAiSuggestions.set(requestId, {
@@ -230,7 +231,7 @@ app.get('/api/gifts/ai-status/:requestId', authenticateToken, async (req, res) =
 });
 
 // Background AI gift generation function (complete rewrite)
-async function generateAiGifts({ age, gender, interests, profession, budget, occasion, existingGifts, requestId }) {
+async function generateAiGifts({ age, gender, interests, profession, budget, occasion, existingGifts, requestId, giftCount = 3 }) {
   console.log(`🧠 [${requestId}] Starting AI gift generation`);
 
   try {
@@ -238,7 +239,7 @@ async function generateAiGifts({ age, gender, interests, profession, budget, occ
     const aiGiftSuggestions = await giftSelectionService.generateNewGifts({
       userCriteria: { age, gender, interests, profession, occasion, budget },
       existingGifts: existingGifts.map(g => g.name),
-      count: 3
+      count: giftCount
     });
 
     console.log(`🧠 [${requestId}] Generated ${aiGiftSuggestions.length} new gift suggestions`);

@@ -1,4 +1,5 @@
-// src/api/services/giftSelectionService.js
+// src/services/giftSelectionService.js
+
 import { generateCompletion, formatMistralPrompt } from './aiService.js';
 
 export const giftSelectionService = {
@@ -23,8 +24,7 @@ export const giftSelectionService = {
         ].filter(Boolean).join(', ');
 
         // Create a simplified version of gifts for the prompt (to save tokens)
-        // eslint-disable-next-line no-unused-vars
-        const giftOptions = gifts.map((gift, index) => ({
+        const giftOptions = gifts.map((gift) => ({
             id: gift.id,
             name: gift.name,
             description: gift.description ? gift.description.substring(0, 100) : '',
@@ -56,8 +56,6 @@ export const giftSelectionService = {
                 temperature: 0.3,
                 maxTokens: 150
             });
-            console.log('AI prompt:', formattedPrompt);
-            console.log('AI response:', result);
 
             // Extract JSON array from response
             const match = result.match(/\[[\d,\s]+\]/);
