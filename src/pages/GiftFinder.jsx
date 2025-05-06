@@ -123,6 +123,7 @@ const GiftFinder = () => {
 
     if (requestId && aiStatus === 'generating') {
       console.log(`Polling started for request ID: ${requestId}`);
+
       intervalId = setInterval(async () => {
         try {
           console.log(`Polling check for ${requestId}...`);
@@ -139,14 +140,22 @@ const GiftFinder = () => {
             const aiGeneratedGifts = response.data.gifts || [];
             dispatch(setGifts([...aiGeneratedGifts, ...dbGifts]));
             dispatch(setIsSearching(false));
-          } else if (response.data.status === 'error') {
+          }
+          else if (response.data.status === 'error') {
             clearInterval(intervalId);
             dispatch(setAiStatus('error'));
             dispatch(setIsSearching(false));
             console.error(`AI generation error for ${requestId}:`, response.data.error);
-          } else if (response.data.status === 'generating' || response.data.status === 'pending') {
+          }
+          else if (response.data.status === 'generating') {
             console.log(`AI still generating for ${requestId}...`);
-          } else {
+
+            // Update with partial results if available
+            if (response.data.gifts && response.data.gifts.length > 0) {
+              dispatch(setGifts([...response.data.gifts, ...dbGifts]));
+            }
+          }
+          else {
             console.warn(`Unexpected AI status for ${requestId}:`, response.data.status);
             clearInterval(intervalId);
             dispatch(setAiStatus('error'));
@@ -290,8 +299,12 @@ const GiftFinder = () => {
             )}
 
             {aiStatus === 'generating' && (
-              <div className="initial-searching-message">
-                <p>ШІ генерує додаткові подарунки...</p>
+              <div className="ai-generating-message">
+                <p>
+                  {gifts.length > dbGifts.length
+                    ? `Показано ${gifts.length - dbGifts.length} AI-подарунків. Генерація триває...`
+                    : "ШІ генерує додаткові подарунки..."}
+                </p>
               </div>
             )}
 

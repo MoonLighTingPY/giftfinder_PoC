@@ -222,17 +222,26 @@ app.get('/api/gifts/ai-status/:requestId', authenticateToken, async (req, res) =
     return res.json({ status: 'pending' });
   }
 
+  // Always return the full result including partial gifts
+  res.json(aiResult);
+
+  // Only clean up from the map if complete or error
   if (aiResult.status === 'completed' || aiResult.status === 'error') {
-    res.json(aiResult);
     pendingAiSuggestions.delete(requestId);
-  } else {
-    res.json({ status: aiResult.status });
   }
 });
 
 // Background AI gift generation function (complete rewrite)
 async function generateAiGifts({ age, gender, interests, profession, budget, occasion, existingGifts, requestId, giftCount = 3 }) {
   console.log(`🧠 [${requestId}] Starting AI gift generation`);
+
+  // Initialize with empty gifts array
+  pendingAiSuggestions.set(requestId, {
+    status: 'generating',
+    gifts: [],
+    total: giftCount,
+    completed: 0
+  });
 
   try {
     // 1. Generate new gift suggestions based on user criteria
@@ -241,12 +250,9 @@ async function generateAiGifts({ age, gender, interests, profession, budget, occ
       existingGifts: existingGifts.map(g => g.name),
       count: giftCount
     });
-
     console.log(`🧠 [${requestId}] Generated ${aiGiftSuggestions.length} new gift suggestions`);
 
-    // 2. Insert new gifts into database
-    const insertedGifts = [];
-
+    // 2. Insert new gifts into database one by one and update status after each
     for (const gift of aiGiftSuggestions) {
       // Check if gift with this name already exists
       const [[exists]] = await pool.query(
@@ -279,7 +285,6 @@ async function generateAiGifts({ age, gender, interests, profession, budget, occ
       // Parse price range
       let budget_min = 0;
       let budget_max = 999;
-
       if (gift.price_range) {
         const priceMatch = gift.price_range.match(/\$?(\d+)(?:\s*-\s*\$?(\d+))?/);
         if (priceMatch) {
@@ -298,8 +303,7 @@ async function generateAiGifts({ age, gender, interests, profession, budget, occ
         );
 
         const newGiftId = result.insertId;
-
-        insertedGifts.push({
+        const newGiftObject = {
           id: newGiftId,
           name: gift.name,
           name_en: name_en,
@@ -310,21 +314,32 @@ async function generateAiGifts({ age, gender, interests, profession, budget, occ
           image_url: image_url,
           ai_generated: true,
           ai_suggested: true
-        });
+        };
 
         console.log(`✅ [${requestId}] Inserted gift "${gift.name}" with ID ${newGiftId}`);
+
+        // Update pending suggestions with the newly inserted gift
+        const currentStatus = pendingAiSuggestions.get(requestId);
+        pendingAiSuggestions.set(requestId, {
+          status: 'generating',
+          gifts: [...currentStatus.gifts, newGiftObject],
+          total: giftCount,
+          completed: currentStatus.completed + 1
+        });
+
       } catch (err) {
         console.error(`❌ [${requestId}] Failed to insert gift "${gift.name}": ${err.message}`);
       }
     }
 
     // 3. Update pending suggestions with completed status
+    const finalStatus = pendingAiSuggestions.get(requestId);
     pendingAiSuggestions.set(requestId, {
       status: 'completed',
-      gifts: insertedGifts
+      gifts: finalStatus.gifts
     });
 
-    console.log(`✅ [${requestId}] AI gift generation completed with ${insertedGifts.length} new gifts`);
+    console.log(`✅ [${requestId}] AI gift generation completed with ${finalStatus.gifts.length} new gifts`);
   } catch (err) {
     console.error(`❌ [${requestId}] AI gift generation error:`, err);
     pendingAiSuggestions.set(requestId, {
