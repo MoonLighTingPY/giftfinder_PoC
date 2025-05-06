@@ -110,13 +110,33 @@ const pendingAiSuggestions = new Map();
 
 // Gift recommendation endpoint (Updated)
 app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
+  let requestId = null;
+
   try {
+    // Destructure new fields: budget, occasion
     const { age, gender, interests, profession, budget, occasion, useAi } = req.body;
     const requestId = Date.now().toString() + Math.random().toString(36).slice(2);
 
-    // Parse budget constraints
+    // --- Start Background AI Gift Generation Immediately (Updated) ---
+    // -----------------------------------------------------
+
+    // 1. Analyze user input (Updated)
+    const aiTags = await analyzeUserInput({ age, gender, interests, profession, occasion }); // Pass occasion
+    console.log('LLM suggested tags:', aiTags);
+
+    // 2. Query database (Updated with budget and occasion)
+    let dbGifts = [];
+    const allSuggestedTags = [
+      ...(aiTags.ageTags || []),
+      ...(aiTags.genderTags || []),
+      ...(aiTags.interestTags || []),
+      ...(aiTags.professionTags || []),
+      ...(aiTags.occasionTags || []) // Include occasion tags
+    ].filter(tag => tag);
+
+    // Budget parsing
     let budgetMin = 0;
-    let budgetMax = 99999;
+    let budgetMax = 99999; // Default large max
     if (budget && typeof budget === 'string') {
       const parts = budget.split('-').map(p => parseFloat(p.replace(/[^0-9.]/g, '')));
       if (parts.length === 1 && !isNaN(parts[0])) {
@@ -124,185 +144,100 @@ app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
       } else if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
         budgetMin = parts[0];
         budgetMax = parts[1];
+      } else if (budget.toLowerCase() === 'any') {
+        // Keep defaults if 'any'
       }
     }
     console.log(`Budget range: ${budgetMin} - ${budgetMax}`);
 
-    // 1. Build base query to fetch gifts matching mandatory criteria
-    const query = `
-      SELECT g.* FROM gifts g
-      JOIN gift_tags gt ON g.id = gt.gift_id
-      JOIN tags t ON gt.tag_id = t.id
-      WHERE g.budget_min <= ? AND g.budget_max >= ?
-      AND (
-        EXISTS (
-          SELECT 1 FROM gift_tags gt2
-          JOIN tags t2 ON gt2.tag_id = t2.id
-          WHERE gt2.gift_id = g.id AND t2.category = 'age' 
-          AND t2.name = ?
-        )
-      )
-      AND (
-        EXISTS (
-          SELECT 1 FROM gift_tags gt2
-          JOIN tags t2 ON gt2.tag_id = t2.id
-          WHERE gt2.gift_id = g.id AND t2.category = 'gender'
-          AND (t2.name = ? OR t2.name = 'unisex')
-        )
-      )
-      AND (
-        EXISTS (
-          SELECT 1 FROM gift_tags gt2
-          JOIN tags t2 ON gt2.tag_id = t2.id
-          WHERE gt2.gift_id = g.id AND t2.category = 'occasion'
-          AND (t2.name = ? OR t2.name = 'any')
-        )
-      )
-      GROUP BY g.id
-      LIMIT 40`; // Limit to prevent overwhelming the AI
 
-    // Determine age group
-    const ageGroup = determineAgeGroup(age);
+    if (allSuggestedTags.length > 0) {
+      // Updated Query with Budget Filter
+      const query = `
+        SELECT
+          g.*,
+          COUNT(DISTINCT t.id) as match_count
+        FROM
+          gifts g
+        JOIN
+          gift_tags gt ON g.id = gt.gift_id
+        JOIN
+          tags t ON gt.tag_id = t.id
+        WHERE
+          t.name IN (?) -- Match any relevant tag
+          AND g.budget_min <= ? -- Budget max filter
+          AND g.budget_max >= ? -- Budget min filter
+        GROUP BY
+          g.id
+        HAVING -- Ensure at least one occasion tag matches if specified, OR 'any' tag exists
+          SUM(CASE WHEN t.category = 'occasion' AND t.name IN (?) THEN 1 ELSE 0 END) > 0
+          OR SUM(CASE WHEN t.category = 'occasion' AND t.name = 'any' THEN 1 ELSE 0 END) > 0
+        ORDER BY
+          match_count DESC, g.id
+        LIMIT 8
+      `;
+      // Prepare params: all tags, budgetMax, budgetMin, occasion tags (or 'any' if none specific)
+      const occasionQueryTags = aiTags.occasionTags && aiTags.occasionTags.length > 0 ? aiTags.occasionTags : ['any'];
+      const queryParams = [allSuggestedTags, budgetMax, budgetMin, occasionQueryTags];
 
-    // Execute query with parameters
-    const [eligibleGifts] = await pool.query(query, [
-      budgetMax,
-      budgetMin,
-      ageGroup,
-      gender || 'unisex',
-      occasion || 'any'
-    ]);
-
-    console.log(`Found ${eligibleGifts.length} gifts matching basic criteria`);
-
-    if (eligibleGifts.length === 0) {
-      return res.json({
-        gifts: [],
-        aiStatus: 'not_started',
-        requestId: null
-      });
+      try {
+        // console.log('SQL query:', query);
+        // console.log('Query params:', queryParams);
+        [dbGifts] = await pool.query(query, queryParams);
+        console.log(`Found ${dbGifts.length} gifts from database matching criteria`);
+      } catch (sqlError) {
+        console.error('SQL Error executing recommendation query:', sqlError);
+        dbGifts = [];
+      }
+    } else {
+      console.log('No valid tags suggested by LLM or extracted.');
+      // Optionally query only by budget if no tags
+      const budgetOnlyQuery = `SELECT *, 0 as match_count FROM gifts WHERE budget_min <= ? AND budget_max >= ? ORDER BY RAND() LIMIT 8`;
+      try {
+        [dbGifts] = await pool.query(budgetOnlyQuery, [budgetMax, budgetMin]);
+        console.log(`Found ${dbGifts.length} gifts from database matching budget only`);
+      } catch (sqlError) {
+        console.error('SQL Error executing budget-only query:', sqlError);
+        dbGifts = [];
+      }
     }
 
-    // Immediately return if AI not requested
-    if (!useAi) {
-      // Select random 8 gifts when not using AI
-      const randomGifts = eligibleGifts
-        .sort(() => 0.5 - Math.random())
-        .slice(0, 8);
 
-      return res.json({
-        gifts: randomGifts.map(g => ({ ...g, ai_suggested: false })),
-        aiStatus: 'not_started',
-        requestId: null
-      });
-    }
-
-    // Start AI selection process in background
-    pendingAiSuggestions.set(requestId, { status: 'generating' });
-
-    // Return initial response with a few random gifts
-    const initialGifts = eligibleGifts
-      .sort(() => 0.5 - Math.random())
-      .slice(0, 4);
-
-    let enriched = initialGifts.map(g => ({ ...g, ai_suggested: false }));
+    // 3. Return database gifts immediately
+    console.log(`Sending initial response for ${requestId} with ${dbGifts.length} DB gifts.`);
+    let enriched = dbGifts.map(g => ({ ...g, ai_suggested: false }));
     try {
       enriched = await enrichGiftsWithImages(enriched);
     } catch (err) {
       console.error('Image enrichment failed:', err);
     }
 
-    // Begin AI selection in background
-    selectGiftsWithAi(eligibleGifts, interests, profession, requestId);
+    if (useAi) {
+      pendingAiSuggestions.set(requestId, { status: 'generating' });
+      generateAiGifts(age, gender, interests, profession, budget, occasion, requestId).catch(() => { });
+    }
 
     res.json({
       gifts: enriched,
-      aiStatus: 'generating',
-      requestId: requestId
+      aiStatus: useAi ? 'generating' : 'not_started',
+      requestId: useAi ? requestId : null
     });
 
+    res.json({
+      gifts: dbGifts.map(g => ({ ...g, ai_suggested: false })),
+      aiStatus: useAi ? 'generating' : 'not_started',
+      requestId: useAi ? requestId : null
+    });
+
+
   } catch (error) {
-    console.error('Gift recommendation error:', error);
+    console.error('Gift recommendation initial request error:', error.message);
+    if (requestId && pendingAiSuggestions.has(requestId)) {
+      pendingAiSuggestions.set(requestId, { status: 'error', error: error.message || 'Initial request processing error' });
+    }
     res.status(500).json({ message: 'Помилка сервера під час отримання рекомендацій.' });
   }
 });
-
-// AI gift selection function
-async function selectGiftsWithAi(eligibleGifts, interests, profession, requestId) {
-  try {
-    // Format gifts for AI to review
-    const giftsForAi = eligibleGifts.map(gift => ({
-      id: gift.id,
-      name: gift.name,
-      description: gift.description,
-      price_range: gift.price_range,
-    }));
-
-    // System prompt for AI
-    const systemPrompt = `
-      Ви — експерт із підбору подарунків, який обирає найкращі подарунки з доступного списку.
-      Оберіть лише ті, які найкраще відповідають інтересам та професії людини.
-    `;
-
-    // User prompt with list of gifts and criteria
-    const userPrompt = `
-      Інтереси/Хобі людини: ${interests || 'не вказано'}
-      Професія: ${profession || 'не вказано'}
-      
-      Нижче наведено список доступних подарунків, які відповідають віку, статі, бюджету та приводу.
-      Будь ласка, оберіть 6-8 найкращих варіантів, враховуючи інтереси та професію.
-      
-      Подарунки:
-      ${JSON.stringify(giftsForAi, null, 2)}
-      
-      Поверніть ТІЛЬКИ масив ID найкращих подарунків у такому форматі:
-      [1, 5, 10, 15, 20, 25]
-    `;
-
-    console.log(`🧠 [${requestId}] Asking AI to select best gifts`);
-    const formatted = formatMistralPrompt(systemPrompt, userPrompt);
-    const raw = await generateCompletion(formatted, {
-      temperature: 0.3,
-      maxTokens: 400
-    });
-
-    // Extract array of IDs from response
-    const match = raw.match(/\[\s*\d+(?:\s*,\s*\d+)*\s*\]/);
-    if (!match) {
-      throw new Error('Failed to extract gift IDs from AI response');
-    }
-
-    const selectedIds = JSON.parse(match[0]);
-    console.log(`🧠 [${requestId}] AI selected gift IDs: ${selectedIds.join(', ')}`);
-
-    // Get full gift details for selected IDs
-    const selectedGifts = eligibleGifts.filter(gift =>
-      selectedIds.includes(gift.id)
-    );
-
-    // Enrich with images if needed
-    const enriched = await enrichGiftsWithImages(selectedGifts);
-
-    // Mark as AI suggested
-    const aiSuggested = enriched.map(gift => ({
-      ...gift,
-      ai_suggested: true
-    }));
-
-    // Complete the request
-    pendingAiSuggestions.set(requestId, {
-      status: 'completed',
-      gifts: aiSuggested
-    });
-
-  } catch (err) {
-    console.error(`🧠 [${requestId}] AI gift selection error:`, err);
-    pendingAiSuggestions.set(requestId, {
-      status: 'error',
-      error: err.message || 'AI selection error'
-    });
-  }
-}
 
 // Endpoint to check AI gift status
 app.get('/api/gifts/ai-status/:requestId', authenticateToken, async (req, res) => {
@@ -373,10 +308,9 @@ async function generateAiGifts(age, gender, interests, profession, budget, occas
      `;
 
     console.log(`🧠 [${requestId}] Calling LLM for gift suggestions`);
-    // console.log(`🧠 [${requestId}] pprompt:`, userPrompt);
+    console.log(`🧠 [${requestId}] pprompt:`, userPrompt);
     const formatted = formatMistralPrompt(systemPrompt, userPrompt);
     const raw = await generateCompletion(formatted, { temperature: 0.75, maxTokens: 1200 });
-    console.log(`🧠 [${requestId}] LLM response:`, raw);
 
     // 2a) Strip any [INST] tags
     const cleaned = raw.replace(/\[\/?INST\]/g, '').trim();
