@@ -3,7 +3,7 @@ import axios from 'axios';
 import process from 'process';
 import dotenv from 'dotenv';
 import { translate } from '@vitalets/google-translate-api';
-import { formatMistralPrompt, generateCompletion } from './llamaService.js';
+import { formatMistralPrompt, generateCompletion } from './aiService.js';
 
 dotenv.config();
 
@@ -30,9 +30,9 @@ export async function translateToEnglish(text) {
     console.warn(`❌ Google translation failed for "${text}": ${err.message}`)
   }
 
-  // 2) Fallback to local Llama
+  // 2) Fallback to grog cloud LLM
   try {
-    console.log(`🤖 Llama translating "${text}" → English`)
+    console.log(`🤖 LLM translating "${text}" → English`)
     const systemPrompt =
       "You are a helpful assistant that translates Ukrainian to English. " +
       "Reply with ONLY the translation (no extra text). " +

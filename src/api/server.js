@@ -5,7 +5,7 @@ import mysql from 'mysql2/promise';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import process from 'process';
-import { generateCompletion, formatMistralPrompt } from '../services/llamaService.js';
+import { generateCompletion, formatMistralPrompt } from '../services/aiService.js';
 import { translateToEnglish, getImageUrl } from '../services/pexelsService.js'
 
 dotenv.config();
