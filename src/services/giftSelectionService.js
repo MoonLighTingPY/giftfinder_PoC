@@ -44,19 +44,18 @@ export const giftSelectionService = {
       Людина: ${userDescription}
       
       Доступні подарунки:
-      ${giftOptions.map(g => `${g.id}: ${g.name} (${g.price}) - ${g.description}`).join('\n')}
+      ${giftOptions.map(g => `${g.id}: ${g.name} (${g.price})`).join('\n')}
       
-      Оберіть ${limit} найбільш підходящих подарунків, враховуючи всі характеристики людини.
+      Оберіть ${limit} найбільш підходящих подарунків, враховуючи всі характеристики людини, і важливо щоб подарунки були більш-менш унікальні.
       Поверніть тільки масив ID!
     `;
 
         try {
             const formattedPrompt = formatMistralPrompt(systemPrompt, userPrompt);
             const result = await generateCompletion(formattedPrompt, {
-                temperature: 0.3,
-                maxTokens: 150
+                temperature: 0.5,
+                maxTokens: 250
             });
-
             // Extract JSON array from response
             const match = result.match(/\[[\d,\s]+\]/);
             if (!match) {
@@ -134,7 +133,7 @@ export const giftSelectionService = {
             const formattedPrompt = formatMistralPrompt(systemPrompt, userPrompt);
             const result = await generateCompletion(formattedPrompt, {
                 temperature: 0.7,
-                maxTokens: 1000
+                maxTokens: 2000
             });
 
             // Extract and parse the JSON array
