@@ -8,6 +8,7 @@ import bcrypt from 'bcrypt';
 import process from 'process';
 import { translateToEnglish, getImageUrl } from '../services/pexelsService.js';
 import { giftSelectionService } from '../services/giftSelectionService.js';
+import { initDuplicateCleaner } from './duplicateCleaner.js';
 
 dotenv.config();
 
@@ -26,7 +27,7 @@ app.use((req, res, next) => {
 });
 
 // Database connection
-const pool = mysql.createPool({
+export const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '',
@@ -50,6 +51,9 @@ const authenticateToken = (req, res, next) => {
     next();
   });
 };
+
+// Start the duplicate‐cleanup job
+initDuplicateCleaner(pool);
 
 // --- Auth Routes ---
 app.post('/api/register', async (req, res) => {

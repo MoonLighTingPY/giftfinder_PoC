@@ -25,6 +25,7 @@
     "jsonwebtoken": "^9.0.2",
     "jwt-decode": "^4.0.0",
     "mysql2": "^3.14.1",
+    "node-cron": "^3.0.3",
     "node-llama-cpp": "^3.7.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
