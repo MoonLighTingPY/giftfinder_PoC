@@ -1,4 +1,3 @@
-// src/store/slices/giftFinderSlice.js
 import { createSlice } from '@reduxjs/toolkit'
 
 const initialState = {

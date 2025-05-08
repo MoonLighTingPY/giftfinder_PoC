@@ -3,11 +3,7 @@ import { Provider } from 'react-redux'
 import { PersistGate } from 'redux-persist/integration/react'
 import { store, persistor } from './store'
 import './App.css'
-
-// Import components
 import Header from './components/Header'
-
-// Import pages
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Home from './pages/Home'
@@ -27,21 +23,21 @@ function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/" element={<Home />} />
-                <Route 
-                  path="/gift-finder" 
+                <Route
+                  path="/gift-finder"
                   element={
                     <PrivateRoute>
                       <GiftFinder />
                     </PrivateRoute>
-                  } 
+                  }
                 />
-                <Route 
-                  path="/profile" 
+                <Route
+                  path="/profile"
                   element={
                     <PrivateRoute>
                       <Profile />
                     </PrivateRoute>
-                  } 
+                  }
                 />
               </Routes>
             </main>

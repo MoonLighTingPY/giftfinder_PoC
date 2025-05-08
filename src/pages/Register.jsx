@@ -1,4 +1,3 @@
-// pages/Register.jsx
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import axios from 'axios'
@@ -13,26 +12,27 @@ const Register = () => {
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  
+
   const navigate = useNavigate()
-  
+
+  // При зміні даних форми, оновлюємо стан
   const handleChange = (e) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
   }
-  
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-    
-    // Validate passwords match
+
+    // Валідація даних
     if (formData.password !== formData.confirmPassword) {
       setError('Паролі не співпадають')
       return
     }
-    
+
     setLoading(true)
-    
+
     try {
       await axios.post(
         `${import.meta.env.VITE_API_URL}/api/register`,
@@ -42,25 +42,25 @@ const Register = () => {
           password: formData.password
         }
       )
-      
-      // Redirect to login page after successful registration
+
+      // Реєстрація пройшла успішно, перенаправляємо на сторінку входу
       navigate('/login')
     } catch (error) {
       setError(
-        error.response?.data?.message || 
+        error.response?.data?.message ||
         'Помилка під час реєстрації'
       )
     } finally {
       setLoading(false)
     }
   }
-  
+
   return (
     <div className="auth-container">
       <h1>Реєстрація</h1>
-      
+
       {error && <p className="error-message">{error}</p>}
-      
+
       <form onSubmit={handleSubmit} className="auth-form">
         <div className="form-group">
           <label htmlFor="username">Ім&apos;я користувача</label>
@@ -73,7 +73,7 @@ const Register = () => {
             required
           />
         </div>
-        
+
         <div className="form-group">
           <label htmlFor="email">Електронна пошта</label>
           <input
@@ -85,7 +85,7 @@ const Register = () => {
             required
           />
         </div>
-        
+
         <div className="form-group">
           <label htmlFor="password">Пароль</label>
           <input
@@ -97,7 +97,7 @@ const Register = () => {
             required
           />
         </div>
-        
+
         <div className="form-group">
           <label htmlFor="confirmPassword">Підтвердіть пароль</label>
           <input
@@ -109,12 +109,12 @@ const Register = () => {
             required
           />
         </div>
-        
+
         <button type="submit" disabled={loading}>
           {loading ? 'Реєстрація...' : 'Зареєструватися'}
         </button>
       </form>
-      
+
       <p>
         Вже маєте обліковий запис? <Link to="/login">Увійти</Link>
       </p>

@@ -1,18 +1,17 @@
-// pages/Home.jsx
 import { Link } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import '../styles/pages/Home.css'
 
 const Home = () => {
   const { isAuthenticated, user } = useSelector((state) => state.auth)
-  
+
   return (
     <div className="home-container">
       <h1>Пошук Подарунків</h1>
       <p className="tagline">
         Знайдіть ідеальний подарунок для будь-кого на основі їхніх інтересів
       </p>
-      
+
       {isAuthenticated ? (
         <div className="welcome-section">
           <h2>Вітаємо, {user.username}!</h2>
@@ -39,7 +38,7 @@ const Home = () => {
           </div>
         </div>
       )}
-      
+
       <div className="features-section">
         <h2>Як це працює</h2>
         <div className="features-grid">

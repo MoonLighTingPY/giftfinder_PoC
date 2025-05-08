@@ -1,4 +1,3 @@
-/* Reset default margin and padding */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -6,14 +5,13 @@
 }
 
 body {
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
     'Helvetica Neue', Arial, sans-serif;
   background-color: #f5f7fb;
   color: #333;
   min-height: 100vh;
 }
 
-/* Make the root element fill the entire viewport */
 #root {
   max-width: 100%;
   width: 100%;
@@ -22,7 +20,6 @@ body {
   text-align: left;
 }
 
-/* Remove default styling from buttons */
 button {
   cursor: pointer;
   border: none;
@@ -30,7 +27,6 @@ button {
   font-family: inherit;
 }
 
-/* Utility classes */
 .container {
   width: 100%;
   max-width: 1200px;
@@ -42,7 +38,6 @@ button {
   text-align: center;
 }
 
-/* Add these to your existing App.css */
 .app-container {
   display: flex;
   flex-direction: column;

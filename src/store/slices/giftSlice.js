@@ -1,4 +1,3 @@
-// store/slices/giftSlice.js
 import { createSlice } from '@reduxjs/toolkit'
 
 const initialState = {
@@ -29,9 +28,9 @@ export const giftSlice = createSlice({
   }
 })
 
-export const { 
-  getGiftsStart, 
-  getGiftsSuccess, 
+export const {
+  getGiftsStart,
+  getGiftsSuccess,
   getGiftsFailed,
   clearGifts
 } = giftSlice.actions

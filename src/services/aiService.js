@@ -1,17 +1,14 @@
-// src/services/llamaService.js
 import axios from 'axios'
 import dotenv from 'dotenv'
 import process from 'process'
 dotenv.config()
 
-// Load your Grog Cloud API key and model
+// Змінні оточення для Groq Cloud
 const groqApiKey = process.env.VITE_GROG_CLOUD_API_KEY
 const groqEndpoint = 'https://api.groq.com/openai/v1/chat/completions'
 const groqModel = process.env.VITE_GROG_MODEL
 
-/**
- * Wraps system + user messages in Mistral Instruct format
- */
+// Обгортає виклик до Groq Cloud API в правильний формат
 export function formatMistralPrompt(systemMessage, userMessage) {
   if (systemMessage?.trim()) {
     return `<s>[INST] ${systemMessage}\n\n${userMessage} [/INST]\n`
@@ -19,12 +16,7 @@ export function formatMistralPrompt(systemMessage, userMessage) {
   return `<s>[INST] ${userMessage} [/INST]\n`
 }
 
-/**
- * Calls Grog Cloud chat completions endpoint
- * @param {string} prompt – the full formatted prompt
- * @param {object} options – { temperature?: number, maxTokens?: number }
- * @returns {Promise<string>} assistant’s reply
- */
+// Сам запит до ШІ від Groq Cloud, де вказується модель, повідомлення та параметри
 export async function generateCompletion(prompt, options = {}) {
   const payload = {
     model: groqModel,

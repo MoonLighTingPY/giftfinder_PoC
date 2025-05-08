@@ -1,4 +1,3 @@
-// src/pages/GiftFinder.jsx
 import { useEffect } from 'react';
 import axios from 'axios';
 import { useSelector, useDispatch } from 'react-redux';
@@ -17,17 +16,17 @@ import {
 } from '../store/slices/giftFinderSlice';
 
 
-// Define budget options
+// Бюджет
 const budgetOptions = [
   { value: 'any', label: 'Будь-який' },
   { value: '0-50', label: 'До $50' },
   { value: '50-100', label: '$50 - $100' },
   { value: '100-250', label: '$100 - $250' },
   { value: '250-500', label: '$250 - $500' },
-  { value: '500+', label: '$500+' } // Represented as 500-99999 in backend
+  { value: '500+', label: '$500+' } // Вважається яе 500-99999 на бекенді
 ];
 
-// Define occasion options (should match DB tags)
+// Привід (мусить відповідати тегам в БД)
 const occasionOptions = [
   { value: 'any', label: 'Будь-який' },
   { value: 'birthday', label: 'День народження' },
@@ -40,6 +39,7 @@ const occasionOptions = [
 
 
 const GiftFinder = () => {
+  // Використання Redux для управління станом, щоб дані не очищалися при переході між сторінками
   const dispatch = useDispatch();
   const {
     recipientInfo,
@@ -66,7 +66,7 @@ const GiftFinder = () => {
     dispatch(setIsSearching(true));
 
     try {
-      // Prepare data, handle budget '500+' case
+      // Підготовка даних для запиту, бюджет 500+ перетворюємо на 500-99999
       let budgetToSend = recipientInfo.budget;
       if (budgetToSend === '500+') {
         budgetToSend = '500-99999';
@@ -117,7 +117,7 @@ const GiftFinder = () => {
     }
   };
 
-  // useEffect for polling AI status
+  // Для перевірки статусу генерації AI подарунків useEffect
   useEffect(() => {
     let intervalId = null;
 
@@ -150,7 +150,7 @@ const GiftFinder = () => {
           else if (response.data.status === 'generating') {
             console.log(`AI still generating for ${requestId}...`);
 
-            // Update with partial results if available
+            // Відображення нових AI подарунків, якщо вони вже згенеровані
             if (response.data.gifts && response.data.gifts.length > 0) {
               dispatch(setGifts([...response.data.gifts, ...dbGifts]));
             }
@@ -177,8 +177,6 @@ const GiftFinder = () => {
     };
   }, [requestId, aiStatus, token, dbGifts, dispatch]);
 
-  // Rest of your component render code remains largely the same
-  // Just update the toggle AI handler:
   const handleToggleAi = () => {
     dispatch(toggleAi());
   };
@@ -188,7 +186,7 @@ const GiftFinder = () => {
       <h1>Пошук Подарунків</h1>
 
       <form onSubmit={handleSubmit} className="gift-form">
-        {/* Row 1: Age & Gender */}
+        {/* Вік і стать */}
         <div className="form-row">
           <div className="form-group form-group-half">
             <label>Вік:</label>
@@ -207,7 +205,7 @@ const GiftFinder = () => {
           </div>
         </div>
 
-        {/* Row 2: Budget & Occasion */}
+        {/* Бюджет і привід */}
         <div className="form-row">
           <div className="form-group form-group-half">
             <label>Бюджет:</label>
@@ -227,7 +225,7 @@ const GiftFinder = () => {
           </div>
         </div>
 
-        {/* Row 3: Interests */}
+        {/* Інтереси/хобі */}
         <div className="form-group">
           <label>Інтереси/Хобі:</label>
           <textarea
@@ -236,7 +234,7 @@ const GiftFinder = () => {
           ></textarea>
         </div>
 
-        {/* Row 4: Profession */}
+        {/* Професія */}
         <div className="form-group">
           <label>Професія:</label>
           <input
@@ -279,7 +277,7 @@ const GiftFinder = () => {
 
       {error && <div className="error-message">{error}</div>}
 
-      {/* Display Results Area */}
+      {/* Результати пошуку */}
       <>
         {(!isSearching && gifts.length > 0) || aiStatus === 'generating' ? (
           <div className="gifts-container">
@@ -290,7 +288,6 @@ const GiftFinder = () => {
                 Підібрано на основі ваших критеріїв:
                 {submittedCriteria.age && ` вік (${submittedCriteria.age}),`}
                 {submittedCriteria.gender && ` стать (${submittedCriteria.gender === 'male' ? 'чоловіча' : 'жіноча'}),`}
-                {/* Display selected budget and occasion */}
                 {submittedCriteria.budget && submittedCriteria.budget !== 'any' && ` бюджет (${budgetOptions.find(o => o.value === submittedCriteria.budget)?.label || submittedCriteria.budget}),`}
                 {submittedCriteria.occasion && submittedCriteria.occasion !== 'any' && ` привід (${occasionOptions.find(o => o.value === submittedCriteria.occasion)?.label || submittedCriteria.occasion}),`}
                 {submittedCriteria.interests && ` інтереси (${submittedCriteria.interests}),`}
@@ -316,11 +313,11 @@ const GiftFinder = () => {
                     className={`gift-card ${(gift.ai_generated || gift.ai_suggested) ? 'ai-suggested' : ''
                       } ${gift.ai_suggested ? 'fresh-ai-suggestion' : ''}`}
                   >
-                    {/* Show AI badge if DB‐generated or just‐generated */}
+                    {/* Показати AI-бейдж на згенерованих подарунках */}
                     {(gift.ai_generated || gift.ai_suggested) && (
                       <div className="ai-badge">AI</div>
                     )}
-                    {/* Show NEW badge on just‐generated items */}
+                    {/* Показати новий бейдж на подарунках, які були ЩОЙНО згенеровані ШІ + AI-бейдж */}
                     {gift.ai_suggested && (
                       <div className="new-badge">NEW</div>
                     )}
@@ -329,20 +326,16 @@ const GiftFinder = () => {
                         <img
                           src={gift.image_url} alt={gift.name}
                           onError={(e) => {
-                            // Simply hide the broken image element
+                            // Приховати зображення при помилці
                             e.target.style.display = 'none';
-                            // Add a class to the parent to show the placeholder text via CSS if needed
-                            // but the existing .no-image class for null URLs already does this.
-                            // We rely on the background color of .gift-image or the .no-image style.
                             const parent = e.target.parentNode;
-                            parent.classList.add('image-error'); // Add a class to signal error state
+                            parent.classList.add('image-error');
                           }}
                         />
-                        {/* Placeholder text can be added here and shown via CSS on error */}
                         <div className="no-image-text"><span>Зображення відсутнє</span></div>
                       </div>
                     ) : (
-                      // This part handles when image_url is null initially
+                      // Показати текст "Зображення відсутнє" при відсутності зображення початково
                       <div className="gift-image no-image">
                         <span>Зображення відсутнє</span>
                       </div>

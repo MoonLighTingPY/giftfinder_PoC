@@ -1,20 +1,16 @@
-// src/services/giftSelectionService.js
-
 import { generateCompletion, formatMistralPrompt } from './aiService.js';
 
+// Повертає масив ID подарунків з бази даних, які підходять людині, за допомогою ШІ
 export const giftSelectionService = {
-    /**
-     * Select the best matching gifts from the database using AI
-     */
     async selectGifts({ userCriteria, gifts, limit = 8 }) {
         const { age, gender, interests, profession, occasion } = userCriteria;
 
-        // If no gifts or simple case (just a few gifts), return all
+        // Якщо подарунків менше або дорівнює ліміту, повертаємо їх без змін
         if (!gifts || gifts.length <= limit) {
             return gifts || [];
         }
 
-        // Format the user criteria in a way the AI can understand
+        // Форматування опису користувача
         const userDescription = [
             age ? `Вік: ${age}` : null,
             gender ? `Стать: ${gender === 'male' ? 'чоловіча' : 'жіноча'}` : null,
@@ -23,7 +19,7 @@ export const giftSelectionService = {
             occasion && occasion !== 'any' ? `Привід: ${occasion}` : null
         ].filter(Boolean).join(', ');
 
-        // Create a simplified version of gifts for the prompt (to save tokens)
+        // Форматування подарунків
         const giftOptions = gifts.map((gift) => ({
             id: gift.id,
             name: gift.name,
@@ -56,7 +52,7 @@ export const giftSelectionService = {
                 temperature: 0.5,
                 maxTokens: 250
             });
-            // Extract JSON array from response
+            // Витягування масиву ID з відповіді ШІ (в форматі JSON)
             const match = result.match(/\[[\d,\s]+\]/);
             if (!match) {
                 console.warn('Failed to extract gift IDs from AI response:', result);
@@ -65,12 +61,12 @@ export const giftSelectionService = {
 
             const selectedIds = JSON.parse(match[0]);
 
-            // Map selected IDs back to full gift objects
+            // Мапінг ID до подарунків
             const selectedGifts = selectedIds
                 .map(id => gifts.find(g => g.id === id))
                 .filter(Boolean);
 
-            // If we don't have enough, fill with random ones
+            // Якщо вибрані подарунки менше ліміту, додаємо випадкові подарунки
             if (selectedGifts.length < limit) {
                 const remainingGifts = gifts.filter(g => !selectedIds.includes(g.id));
                 const additionalGifts = remainingGifts
@@ -83,21 +79,19 @@ export const giftSelectionService = {
             return selectedGifts;
         } catch (error) {
             console.error('Error selecting gifts with AI:', error);
-            // Fallback to random selection
+            // У разі помилки повертаємо випадкові подарунки
             return gifts
                 .sort(() => 0.5 - Math.random())
                 .slice(0, limit);
         }
     },
 
-    /**
-     * Generate new gift suggestions based on user criteria
-     */
+    // Генерація нових подарунків на основі характеристик користувача
     async generateNewGifts({ userCriteria, existingGifts = [], count = 3 }) {
         const { age, gender, interests, profession, occasion, budget } = userCriteria;
 
         const formattedBudget = budget && budget !== 'any'
-            ? budget.replace('500+', '500-1000') // Format the high-end budget range
+            ? budget.replace('500+', '500-1000') // замінюємо "500+" на "500-1000", щоб уникнути абсурдних цінових діапазонів
             : 'будь-який';
 
         const systemPrompt = `
@@ -136,10 +130,10 @@ export const giftSelectionService = {
                 maxTokens: 2000
             });
 
-            // Extract and parse the JSON array
+            // Витягування масиву подарунків з відповіді ШІ (в форматі JSON)
             const match = result.match(/\[\s*\{[\s\S]*\}\s*\]/);
             if (!match) {
-                // Fallback: try to find individual gift objects
+                // Якщо не вдалося витягнути JSON, спробуємо знайти об'єкти вручну
                 const objMatches = result.match(/\{[\s\S]*?\}/g) || [];
                 if (objMatches.length > 0) {
                     return objMatches

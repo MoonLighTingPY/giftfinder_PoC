@@ -11,15 +11,15 @@ const pexelsApiKey = process.env.VITE_PEXELS_API_KEY;
 const imageCache = new Map();
 const translationCache = new Map();
 
-// Helper function to translate Ukrainian to English
+// Функція для перекладу тексту з української на англійську
 export async function translateToEnglish(text) {
-  // 0) Return cached translation
+  // 0) Якщо текст вже є в кеші, повертаємо його
   if (translationCache.has(text)) {
     console.log(`🔄 Using cached translation for "${text}"`)
     return translationCache.get(text)
   }
 
-  // 1) Try Google Translate
+  // 1) Пробуємо Google Translate
   try {
     const result = await translate(text, { to: 'en' })
     const translatedText = result.text.trim()
@@ -27,10 +27,11 @@ export async function translateToEnglish(text) {
     console.log(`✅ Google translated "${text}" → "${translatedText}"`)
     return translatedText
   } catch (err) {
+    // Вперлися в ліміт (код 429) або інша помилка
     console.warn(`❌ Google translation failed for "${text}": ${err.message}`)
   }
 
-  // 2) Fallback to grog cloud LLM
+  // 2) Пробуємо вже ШІ, якщо гугл перекладач не спрацював
   try {
     console.log(`🤖 LLM translating "${text}" → English`)
     const systemPrompt =
@@ -51,16 +52,16 @@ export async function translateToEnglish(text) {
   }
 }
 
-// Helper to make cancellable Pexels requests
+// Функція для запиту до Pexels API
 const makePexelsRequest = async (url, params) => {
   try {
     const response = await axios.get(url, {
       params,
       headers: { Authorization: pexelsApiKey }
     });
-    return response.data; // Return data on success
+    return response.data; // Повертаємо дані з відповіді
   } catch (error) {
-    // Check if it's a rate limit error (429) and we haven't exceeded retries
+    // Перекриваємо помилку, чи це статус 429 (ліміт запитів)
     if (error.response?.status === 429) {
       console.warn(`⚠️ Pexels Rate Limit Hit`);
       return [];
@@ -68,6 +69,7 @@ const makePexelsRequest = async (url, params) => {
   }
 };
 
+// Функція для пошуку зображень за запитом
 export const searchImages = async (query, perPage = 1) => {
   if (imageCache.has(query)) {
     console.log(`🔄 Using cached image for "${query}"`);
@@ -75,7 +77,7 @@ export const searchImages = async (query, perPage = 1) => {
   }
 
   try {
-    // First try with the exact query
+    // Пробуємо знайти зображення за запитом
     let data = await makePexelsRequest(`https://api.pexels.com/v1/search`, {
       query,
       per_page: perPage,
@@ -90,17 +92,17 @@ export const searchImages = async (query, perPage = 1) => {
 
     // eslint-disable-next-line no-unused-vars
   } catch (error) {
-    // Error already logged in makePexelsRequest
-    return []; // Return empty array on failure
+    // Помилка вже оброблена в makePexelsRequest
+    return []; // Повертаємо пустий масив, якщо не вдалося знайти зображення
   }
 };
 
 export const getImageUrl = async (query, isEnglish) => {
   try {
-    // Translate the query from Ukrainian to English
+    // Перекладаємо запит, якщо він не англійською
     if (!isEnglish) {
       const translated = await translateToEnglish(query);
-      // Only use the translated value if translation succeeded
+      // Тільки використовуємо переклад, якщо він успішний (щоб не було null/українською)
       if (translated) {
         query = translated;
         console.log(`🔍 Using translated query: "${query}"`);
@@ -111,18 +113,18 @@ export const getImageUrl = async (query, isEnglish) => {
       console.log(`🔍 Searching for image with query: "${query}"`);
     }
 
-    // Use translated query for image search - only need 1 image
-    let photos = await searchImages(query, 1);  // Changed from 15 to 1
+    // Пошук зображень за запитом
+    let photos = await searchImages(query, 1); // Повертаємо тільки перше зображення
 
-    // If we got a result, use it
+    // Якщо знайдено зображення, повертаємо його URL
     if (photos && photos.length > 0) {
       console.log(`🖼️ Using image for "${query}": ${photos[0].src.medium}`);
-      return photos[0].src.medium;  // Just use the first one directly
+      return photos[0].src.medium;  // Просто перше зображення
     }
     return null;
 
   } catch (error) {
     console.error(`❌ Error fetching image for "${query}":`, error.message);
-    return null; // Return null on error
+    return null; // Повертаємо null, якщо не вдалося отримати зображення, щоб уникнути помилок
   }
 };

@@ -1,4 +1,3 @@
-// src/api/server.js
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -10,12 +9,12 @@ import { translateToEnglish, getImageUrl } from '../services/pexelsService.js';
 import { giftSelectionService } from '../services/giftSelectionService.js';
 import { initDuplicateCleaner } from './duplicateCleaner.js';
 
+// Ініціалізація змінних оточення
 dotenv.config();
-
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware
+// Middleware для обробки CORS та JSON
 app.use(cors());
 app.use(express.json());
 app.use((req, res, next) => {
@@ -26,7 +25,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Database connection
+// Підключення до бази даних
 export const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
@@ -35,10 +34,10 @@ export const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-  decimalNumbers: true // Ensure decimals are returned as numbers
+  decimalNumbers: true // Прапорець, щоб повертати числа з плаваючою комою, а не текст з бд
 });
 
-// Middleware to verify JWT
+// Middleware щоб верифікувати jwt токен
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -52,10 +51,10 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-// Start the duplicate‐cleanup job
+// Почати очищення дублікатів подарунків в базі даних
 initDuplicateCleaner(pool);
 
-// --- Auth Routes ---
+// Ендпоінти
 app.post('/api/register', async (req, res) => {
   try {
     const { username, email, password } = req.body;
@@ -118,33 +117,37 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// --- Gift Recommendation API ---
+
 const pendingAiSuggestions = new Map();
 
-// Gift recommendation endpoint (complete rewrite)
+// Ендпоінт для отримання рекомендацій подарунків (результат пошуку) на базі запиту з AI
 app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
   const requestId = Date.now().toString() + Math.random().toString(36).slice(2);
 
   try {
     const { age, gender, interests, profession, budget, occasion, useAi, aiGiftCount = 3 } = req.body;
 
-    // Parse budget into min/max values
+    // Парсимо бюджет для використання в SQL запитах
     let budgetMin = 0;
     let budgetMax = 99999;
 
+    // Якщо бюджет не вказано, використовуємо значення за замовчуванням
     if (budget && typeof budget === 'string' && budget !== 'any') {
+      // Прибираємо символи валюти та пробіли
       const parts = budget.split('-').map(p => parseFloat(p.replace(/[^0-9.]/g, '')));
       if (parts.length === 1 && !isNaN(parts[0])) {
-        budgetMax = parts[0]; // If only one value, treat as max budget
+        budgetMax = parts[0]; // Якщо вказано лише верхню межу, встановлюємо її
       } else if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        // Якщо вказано обидві межі, використовуємо їх
         budgetMin = parts[0];
         budgetMax = parts[1];
       }
     }
 
+    // Логування запиту
     console.log(`Processing request ${requestId} with budget range: $${budgetMin}-$${budgetMax}`);
 
-    // 1. Get all gifts from database (only necessary fields)
+    // 1. Отримуємо всі подарунки з бази даних, які підходять під бюджет
     const [allGifts] = await pool.query(`
       SELECT 
         id, name, name_en, description, price_range, 
@@ -163,17 +166,17 @@ app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
       });
     }
 
-    // 2. Use AI to select the best matching gifts from the database
+    // 2. Використовуємо ШІ для вибору подарунків на основі характеристик користувача
     const selectedGifts = await giftSelectionService.selectGifts({
       userCriteria: { age, gender, interests, profession, occasion },
       gifts: allGifts,
       limit: 8
     });
 
-    // Add image URLs to any gift without one
+    // 2.1 Додаємо зображення до подарунків
     const enrichedGifts = await enrichGiftsWithImages(selectedGifts);
 
-    // 3. Start background AI gift generation if requested
+    // 3. Якщо користувач ввімкнув генерацію подарунків ШІ, запускаємо її на фоні
     if (useAi) {
       pendingAiSuggestions.set(requestId, { status: 'generating' });
 
@@ -196,7 +199,7 @@ app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
       });
     }
 
-    // 4. Return selected gifts immediately
+    // 4. Моментально повертаємо результати
     res.json({
       gifts: enrichedGifts,
       aiStatus: useAi ? 'generating' : 'not_started',
@@ -217,7 +220,7 @@ app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
   }
 });
 
-// Endpoint to check AI gift status
+// Ендпоінт для отримання статусу AI генерації подарунків (щоб перевірити, чи завершено, і всі подарунки відображені)
 app.get('/api/gifts/ai-status/:requestId', authenticateToken, async (req, res) => {
   const { requestId } = req.params;
   const aiResult = pendingAiSuggestions.get(requestId);
@@ -226,16 +229,16 @@ app.get('/api/gifts/ai-status/:requestId', authenticateToken, async (req, res) =
     return res.json({ status: 'pending' });
   }
 
-  // Always return the full result including partial gifts
+  // Завжди повертаємо результати, навіть якщо генерацію ще не завершено, щоб отримати подарунки, які вже згенеровані
   res.json(aiResult);
 
-  // Only clean up from the map if complete or error
+  // Тільки видаляємо з черги, якщо статус завершено або помилка
   if (aiResult.status === 'completed' || aiResult.status === 'error') {
     pendingAiSuggestions.delete(requestId);
   }
 });
 
-// Background AI gift generation function (complete rewrite)
+// Функція для генерації подарунків AI на основі характеристик користувача
 async function generateAiGifts({ age, gender, interests, profession, budget, occasion, existingGifts, requestId, giftCount = 3 }) {
   console.log(`🧠 [${requestId}] Starting AI gift generation`);
 
@@ -248,7 +251,7 @@ async function generateAiGifts({ age, gender, interests, profession, budget, occ
   });
 
   try {
-    // 1. Generate new gift suggestions based on user criteria
+    // 1. Гнереруємо нові подарунки на основі характеристик користувача
     const aiGiftSuggestions = await giftSelectionService.generateNewGifts({
       userCriteria: { age, gender, interests, profession, occasion, budget },
       existingGifts: existingGifts.map(g => g.name),
@@ -256,9 +259,9 @@ async function generateAiGifts({ age, gender, interests, profession, budget, occ
     });
     console.log(`🧠 [${requestId}] Generated ${aiGiftSuggestions.length} new gift suggestions`);
 
-    // 2. Insert new gifts into database one by one and update status after each
+    // 2. Вставляємо нові подарунки в базу даних один за одним
     for (const gift of aiGiftSuggestions) {
-      // Check if gift with this name already exists
+      // Перевіряємо, чи вже існує подарунок в базі даних
       const [[exists]] = await pool.query(
         'SELECT id FROM gifts WHERE name = ?',
         [gift.name]
@@ -269,7 +272,7 @@ async function generateAiGifts({ age, gender, interests, profession, budget, occ
         continue;
       }
 
-      // Translate name to English for image search
+      // Трансляція назви подарунка на англійську, бо Pexels API погано шукає українською
       let name_en = null;
       try {
         name_en = await translateToEnglish(gift.name);
@@ -277,7 +280,7 @@ async function generateAiGifts({ age, gender, interests, profession, budget, occ
         console.warn(`⚠️ [${requestId}] Translation failed for "${gift.name}": ${err.message}`);
       }
 
-      // Get image
+      // Отримуємо URL зображення для подарунка
       let image_url = null;
       try {
         const queryName = name_en || gift.name;
@@ -286,10 +289,12 @@ async function generateAiGifts({ age, gender, interests, profession, budget, occ
         console.warn(`⚠️ [${requestId}] Failed to get image for "${gift.name}": ${err.message}`);
       }
 
-      // Parse price range
+      // Парсимо ціновий діапазон
       let budget_min = 0;
       let budget_max = 999;
       if (gift.price_range) {
+        // Витягуємо ціновий діапазон з рядка, прибираючи символи валюти, наприклад "$50-$100" або "$50"
+        gift.price_range = gift.price_range.replace(/[^0-9$-]/g, '');
         const priceMatch = gift.price_range.match(/\$?(\d+)(?:\s*-\s*\$?(\d+))?/);
         if (priceMatch) {
           budget_min = parseInt(priceMatch[1]) || 0;
@@ -297,7 +302,7 @@ async function generateAiGifts({ age, gender, interests, profession, budget, occ
         }
       }
 
-      // Insert new gift
+      // Вставляємо новий згенерований подарунок в базу даних з зображенням і прапорцем ai_generated = 1
       try {
         const [result] = await pool.query(
           `INSERT INTO gifts 
@@ -322,7 +327,7 @@ async function generateAiGifts({ age, gender, interests, profession, budget, occ
 
         console.log(`✅ [${requestId}] Inserted gift "${gift.name}" with ID ${newGiftId}`);
 
-        // Update pending suggestions with the newly inserted gift
+        // Оновлюємо статус генерації подарунків
         const currentStatus = pendingAiSuggestions.get(requestId);
         pendingAiSuggestions.set(requestId, {
           status: 'generating',
@@ -336,7 +341,7 @@ async function generateAiGifts({ age, gender, interests, profession, budget, occ
       }
     }
 
-    // 3. Update pending suggestions with completed status
+    // 3. Оновлюємо статус генерації подарунків
     const finalStatus = pendingAiSuggestions.get(requestId);
     pendingAiSuggestions.set(requestId, {
       status: 'completed',
@@ -353,17 +358,17 @@ async function generateAiGifts({ age, gender, interests, profession, budget, occ
   }
 }
 
-// Helper function to add images to gifts
+// Функція для збагачення подарунків зображеннями
 async function enrichGiftsWithImages(gifts) {
   const enrichedGifts = [...gifts];
 
   for (let i = 0; i < enrichedGifts.length; i++) {
     const gift = enrichedGifts[i];
 
-    // Skip if already has an image
+    // Пропускаємо подарунки, які вже мають зображення
     if (gift.image_url) continue;
 
-    // Prefer English name when available
+    // Використовуємо назву англійською, якщо вона є
     const queryName = gift.name_en || gift.name;
     const isEnglish = Boolean(gift.name_en && gift.name_en.trim());
 
@@ -375,7 +380,7 @@ async function enrichGiftsWithImages(gifts) {
           image_url: imageUrl
         };
 
-        // Update database with the new image URL
+        // Оновлюємо зображення в базі даних
         await pool.query(
           'UPDATE gifts SET image_url = ? WHERE id = ?',
           [imageUrl, gift.id]
@@ -389,7 +394,7 @@ async function enrichGiftsWithImages(gifts) {
   return enrichedGifts;
 }
 
-// Image refresh endpoint
+// Ендпоінт для оновлення зображень подарунків
 app.get('/api/refresh-images', authenticateToken, async (req, res) => {
   const forceRefresh = req.query.force === 'true';
 
@@ -409,7 +414,7 @@ app.get('/api/refresh-images', authenticateToken, async (req, res) => {
       count: giftsToUpdate.length
     });
 
-    // Process images in background
+    // Обробка зображень в фоновому режимі
     (async () => {
       let updatedCount = 0;
       let failedCount = 0;
@@ -436,7 +441,7 @@ app.get('/api/refresh-images', authenticateToken, async (req, res) => {
           console.error(`❌ Error processing image for "${gift.name}":`, err.message);
         }
 
-        // Delay to avoid rate limits
+        // Затримка між запитами, щоб уникнути бану API
         await new Promise(resolve => setTimeout(resolve, 300));
       }
 
@@ -450,26 +455,44 @@ app.get('/api/refresh-images', authenticateToken, async (req, res) => {
   }
 });
 
-// Start server
+// Функція для перевірки і оновлення подарунків без зображень
+async function checkAndUpdateMissingImages() {
+  try {
+    // Отримуємо подарунки без зображень
+    const [giftsWithoutImages] = await pool.query(
+      'SELECT * FROM gifts WHERE image_url IS NULL OR image_url = ""'
+    );
+
+    const missingImagesCount = giftsWithoutImages.length;
+
+    if (missingImagesCount > 0) {
+      console.log(`⚠️ Found ${missingImagesCount} gifts without images. Starting enrichment...`);
+
+      // Використовуємо існуючу функцію для збагачення подарунків зображеннями
+      const enrichedGifts = await enrichGiftsWithImages(giftsWithoutImages);
+
+      const updatedCount = enrichedGifts.filter(gift => gift.image_url).length;
+      const failedCount = missingImagesCount - updatedCount;
+
+      console.log(`✅ Image enrichment complete. Updated: ${updatedCount}, Failed: ${failedCount}`);
+    } else {
+      console.log('✅ All gifts have images');
+    }
+  } catch (err) {
+    console.error('❌ Error checking/enriching missing images:', err);
+  }
+}
+
+// Запуск сервера
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 
-  // Check for missing images on startup
-  (async () => {
-    try {
-      const [giftsWithoutImages] = await pool.query(
-        'SELECT COUNT(*) as count FROM gifts WHERE image_url IS NULL OR image_url = ""'
-      );
+  checkAndUpdateMissingImages();
 
-      const missingImagesCount = giftsWithoutImages[0].count;
-
-      if (missingImagesCount > 0) {
-        console.log(`⚠️ Found ${missingImagesCount} gifts without images`);
-      } else {
-        console.log('✅ All gifts have images');
-      }
-    } catch (err) {
-      console.error('❌ Error checking for missing images:', err);
-    }
-  })();
+  // Перевіряємо наявність подарунків без зображень, якщо такі є - оновлюємо їх
+  const imageCheckIntervalMs = 15 * 60 * 1000;
+  setInterval(() => {
+    console.log('🔄 Running scheduled check for gifts without images');
+    checkAndUpdateMissingImages();
+  }, imageCheckIntervalMs);
 });

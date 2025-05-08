@@ -1,9 +1,8 @@
-// Instead of importing pool directly, export an initialization function
+// Імпорт стану ініціалізації бази даних, щоб уникнути спроби видалення дублікатів до того, як база даних буде готова
 let poolInstance = null;
 
-/**
- * Every 15 minutes, find name‐based duplicates via LLM and delete the oldest entries.
- */
+// Функція для очищення дублікатів подарунків у базі даних
+// Знаходить і видаляє подібні подарунки, залишаючи тільки найновіші версії
 async function cleanDuplicateGifts() {
     if (!poolInstance) {
         console.error('[duplicateCleaner] Database pool not initialized');
@@ -13,7 +12,7 @@ async function cleanDuplicateGifts() {
     const [rows] = await poolInstance.query('SELECT id, name, created_at FROM gifts');
     if (rows.length < 2) return;
 
-    // Find duplicate gifts using string similarity instead of LLM
+
     const duplicateGroups = [];
     const processedIds = new Set();
 
@@ -28,7 +27,7 @@ async function cleanDuplicateGifts() {
 
             const targetName = rows[j].name.toLowerCase();
 
-            // Check for exact duplicates or very close matches
+            // Перевірка на точні дублікати або дуже схожі назви
             if (currentName === targetName ||
                 (currentName.includes(targetName) && targetName.length > 5) ||
                 (targetName.includes(currentName) && currentName.length > 5) ||
@@ -45,28 +44,29 @@ async function cleanDuplicateGifts() {
         }
     }
 
-    // Handle each duplicate group
+    // Обробка кожної групи дублікатів
     for (const group of duplicateGroups) {
-        // Find the newest gift by ID (assuming higher ID = newer)
+        // Знаходимо найновіший подарунок за ID (припускаємо, що більший ID = новіший)
         group.sort((a, b) => a - b);
         const toDelete = group.slice(0, -1);
         const keptId = group[group.length - 1];
 
-        // Find gift names for logging
+        // Знаходимо назви подарунків для журналювання
         const deletedGifts = toDelete.map(id => {
             const gift = rows.find(r => Number(r.id) === Number(id));
-            return gift ? `${id} (${gift.name})` : `${id} (unknown)`;
+            return gift ? `${id} (${gift.name})` : `${id} (невідомо)`;
         });
 
         const keptGift = rows.find(r => Number(r.id) === Number(keptId));
-        const keptName = keptGift ? keptGift.name : 'unknown';
+        const keptName = keptGift ? keptGift.name : 'невідомо';
 
         await poolInstance.query('DELETE FROM gifts WHERE id IN (?)', [toDelete]);
-        console.log(`[duplicateCleaner] Deleted duplicates: ${deletedGifts.join(', ')}, kept: ${keptId} (${keptName})`);
+        console.log(`[duplicateCleaner] Видалено дублікати: ${deletedGifts.join(', ')}, залишено: ${keptId} (${keptName})`);
     }
 }
 
-// Levenshtein distance function to measure string similarity
+// Функція відстані Левенштейна для вимірювання подібності рядків
+// Повертає кількість операцій (вставка, видалення, заміна), необхідних для перетворення одного рядка в інший
 function levenshteinDistance(str1, str2) {
     const track = Array(str2.length + 1).fill(null).map(() =>
         Array(str1.length + 1).fill(null));
@@ -83,9 +83,9 @@ function levenshteinDistance(str1, str2) {
         for (let i = 1; i <= str1.length; i += 1) {
             const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
             track[j][i] = Math.min(
-                track[j][i - 1] + 1, // deletion
-                track[j - 1][i] + 1, // insertion
-                track[j - 1][i - 1] + indicator, // substitution
+                track[j][i - 1] + 1, // видалення символу
+                track[j - 1][i] + 1, // вставка символу
+                track[j - 1][i - 1] + indicator, // заміна символу
             );
         }
     }
@@ -93,20 +93,20 @@ function levenshteinDistance(str1, str2) {
     return track[str2.length][str1.length];
 }
 
-// Export an initialization function instead
+// Експортуємо функцію ініціалізації, яка запускає процес очищення
 export function initDuplicateCleaner(pool) {
     poolInstance = pool;
 
-    // Run immediately on server start
-    console.log('[duplicateCleaner] Running initial duplicate cleanup on server start');
+    // Запускаємо одразу при старті сервера
+    console.log('[duplicateCleaner] Запуск початкового очищення дублікатів при старті сервера');
     cleanDuplicateGifts().catch(err => {
-        console.error('[duplicateCleaner] Initial cleanup error:', err);
+        console.error('[duplicateCleaner] Помилка початкового очищення:', err);
     });
 
-    // Then run every 15 minutes (15 * 60 * 1000 = 900000 milliseconds)
+    // Потім запускаємо кожні 15 хвилин (15 * 60 * 1000 = 900000 мілісекунд)
     const intervalMs = 15 * 60 * 1000;
     setInterval(() => {
-        console.log('[duplicateCleaner] Running scheduled duplicate cleanup');
+        console.log('[duplicateCleaner] Запуск планового очищення дублікатів');
         cleanDuplicateGifts().catch(console.error);
     }, intervalMs);
 }
