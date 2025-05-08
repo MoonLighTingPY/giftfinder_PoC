@@ -9,14 +9,18 @@ import { translateToEnglish, getImageUrl } from '../services/pexelsService.js';
 import { giftSelectionService } from '../services/giftSelectionService.js';
 import { initDuplicateCleaner } from './duplicateCleaner.js';
 
-// Ініціалізація змінних оточення
+// Завантаження змінних оточення з файлу .env
 dotenv.config();
+
+// Створення екземпляру Express та встановлення порту з файлу .env або 3001 за замовчуванням
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware для обробки CORS та JSON
+// Middleware для обробки CORS (дозволяє запити з інших доменів) та JSON (парсить тіло запиту як JSON)
 app.use(cors());
 app.use(express.json());
+
+// Додаємо заголовок безпеки Content-Security-Policy для захисту від XSS та інших атак
 app.use((req, res, next) => {
   res.setHeader(
     'Content-Security-Policy',
@@ -25,19 +29,20 @@ app.use((req, res, next) => {
   next();
 });
 
-// Підключення до бази даних
+// Підключення до бази даних MySQL, використовуючи параметри з файлу .env
 export const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'gift_finder',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  decimalNumbers: true // Прапорець, щоб повертати числа з плаваючою комою, а не текст з бд
+  waitForConnections: true,  // Очікувати підключення, якщо пул заповнений
+  connectionLimit: 10,        // Максимум 10 одночасних підключень
+  queueLimit: 0,              // Необмежена черга для підключень
+  decimalNumbers: true        // Повертати числа з плаваючою комою як числа, а не як рядки
 });
 
-// Middleware щоб верифікувати jwt токен
+// Middleware для перевірки JWT токена
+// Токен потрібен для авторизації користувача без запиту в бд.
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -51,13 +56,15 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-// Почати очищення дублікатів подарунків в базі даних
+// Ініціалізація модуля для виявлення та очищення дублікатів подарунків у базі даних
 initDuplicateCleaner(pool);
 
-// Ендпоінти
+// Ендпоінт для реєстрації нового користувача
 app.post('/api/register', async (req, res) => {
   try {
     const { username, email, password } = req.body;
+
+    // Перевірка, чи не існує вже користувач з таким логіном або email
     const [existingUsers] = await pool.query(
       'SELECT * FROM users WHERE username = ? OR email = ?',
       [username, email]
@@ -67,8 +74,10 @@ app.post('/api/register', async (req, res) => {
       return res.status(409).json({ message: 'Користувач або емейл вже існує' });
     }
 
+    // Хешування пароля для безпечного зберігання в базі даних
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Додавання нового користувача в базу даних
     await pool.query(
       'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
       [username, email, hashedPassword]
@@ -81,9 +90,12 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
+// Ендпоінт для входу користувача в систему
 app.post('/api/login', async (req, res) => {
   try {
     const { username, password } = req.body;
+
+    // Пошук користувача за ім'ям в базі даних
     const [users] = await pool.query(
       'SELECT * FROM users WHERE username = ?',
       [username]
@@ -94,16 +106,19 @@ app.post('/api/login', async (req, res) => {
     }
 
     const user = users[0];
+
+    // Перевірка правильності пароля порівнянням хешів
     const isPasswordValid = await bcrypt.compare(password, user.password_hash);
 
     if (!isPasswordValid) {
       return res.status(401).json({ message: 'Неправильні дані' });
     }
 
+    // Генерація JWT токена для авторизації користувача в системі
     const token = jwt.sign(
       { id: user.id, username: user.username },
       process.env.JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: '24h' }  // Термін дії токена - 24 години
     );
 
     res.json({
@@ -117,21 +132,23 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-
+// Зберігання стану процесів генерації подарунків за допомогою ШІ
+// Ключ - ідентифікатор запиту, значення - об'єкт з статусом і результатами
 const pendingAiSuggestions = new Map();
 
-// Ендпоінт для отримання рекомендацій подарунків (результат пошуку) на базі запиту з AI
+// Ендпоінт для отримання рекомендацій подарунків на основі критеріїв користувача
 app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
+  // Створення унікального ідентифікатора запиту для відстеження статусу генерації ШІ
   const requestId = Date.now().toString() + Math.random().toString(36).slice(2);
 
   try {
     const { age, gender, interests, profession, budget, occasion, useAi, aiGiftCount = 3 } = req.body;
 
-    // Парсимо бюджет для використання в SQL запитах
+    // Парсимо рядок бюджету в числові значення для фільтрації подарунків у базі даних
     let budgetMin = 0;
     let budgetMax = 99999;
 
-    // Якщо бюджет не вказано, використовуємо значення за замовчуванням
+    // Перетворення рядка бюджету (напр. "$50-$100") у числові межі
     if (budget && typeof budget === 'string' && budget !== 'any') {
       // Прибираємо символи валюти та пробіли
       const parts = budget.split('-').map(p => parseFloat(p.replace(/[^0-9.]/g, '')));
@@ -144,7 +161,7 @@ app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
       }
     }
 
-    // Логування запиту
+    // Запис інформації про запит у журнал
     console.log(`Processing request ${requestId} with budget range: $${budgetMin}-$${budgetMax}`);
 
     // 1. Отримуємо всі подарунки з бази даних, які підходять під бюджет
@@ -158,6 +175,7 @@ app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
 
     console.log(`Found ${allGifts.length} gifts matching budget criteria`);
 
+    // Якщо не знайдено жодного подарунка, відразу повертаємо пустий результат
     if (allGifts.length === 0) {
       return res.json({
         gifts: [],
@@ -173,7 +191,7 @@ app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
       limit: 8
     });
 
-    // 2.1 Додаємо зображення до подарунків
+    // 2.1 Додаємо зображення до подарунків, які їх не мають
     const enrichedGifts = await enrichGiftsWithImages(selectedGifts);
 
     // 3. Якщо користувач ввімкнув генерацію подарунків ШІ, запускаємо її на фоні
@@ -199,7 +217,7 @@ app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
       });
     }
 
-    // 4. Моментально повертаємо результати
+    // 4. Моментально повертаємо результати, не чекаючи завершення генерації ШІ
     res.json({
       gifts: enrichedGifts,
       aiStatus: useAi ? 'generating' : 'not_started',
@@ -220,7 +238,7 @@ app.post('/api/gifts/recommend', authenticateToken, async (req, res) => {
   }
 });
 
-// Ендпоінт для отримання статусу AI генерації подарунків (щоб перевірити, чи завершено, і всі подарунки відображені)
+// Ендпоінт для перевірки статусу генерації подарунків ШІ та отримання результатів
 app.get('/api/gifts/ai-status/:requestId', authenticateToken, async (req, res) => {
   const { requestId } = req.params;
   const aiResult = pendingAiSuggestions.get(requestId);
@@ -238,11 +256,11 @@ app.get('/api/gifts/ai-status/:requestId', authenticateToken, async (req, res) =
   }
 });
 
-// Функція для генерації подарунків AI на основі характеристик користувача
+// Функція для генерації нових подарунків за допомогою ШІ на основі характеристик користувача
 async function generateAiGifts({ age, gender, interests, profession, budget, occasion, existingGifts, requestId, giftCount = 3 }) {
   console.log(`🧠 [${requestId}] Starting AI gift generation`);
 
-  // Initialize with empty gifts array
+  // Ініціалізуємо запис у мапі статусів генерації
   pendingAiSuggestions.set(requestId, {
     status: 'generating',
     gifts: [],
@@ -251,12 +269,13 @@ async function generateAiGifts({ age, gender, interests, profession, budget, occ
   });
 
   try {
-    // 1. Гнереруємо нові подарунки на основі характеристик користувача
+    // 1. Генеруємо нові подарунки на основі характеристик користувача
     const aiGiftSuggestions = await giftSelectionService.generateNewGifts({
       userCriteria: { age, gender, interests, profession, occasion, budget },
       existingGifts: existingGifts.map(g => g.name),
       count: giftCount
     });
+
     console.log(`🧠 [${requestId}] Generated ${aiGiftSuggestions.length} new gift suggestions`);
 
     // 2. Вставляємо нові подарунки в базу даних один за одним
@@ -289,13 +308,15 @@ async function generateAiGifts({ age, gender, interests, profession, budget, occ
         console.warn(`⚠️ [${requestId}] Failed to get image for "${gift.name}": ${err.message}`);
       }
 
-      // Парсимо ціновий діапазон
+      // Парсимо ціновий діапазон з формату "$X-$Y" у окремі значення min, max
       let budget_min = 0;
       let budget_max = 999;
+
       if (gift.price_range) {
-        // Витягуємо ціновий діапазон з рядка, прибираючи символи валюти, наприклад "$50-$100" або "$50"
+        // Витягуємо ціновий діапазон з рядка, прибираючи символи валюти
         gift.price_range = gift.price_range.replace(/[^0-9$-]/g, '');
         const priceMatch = gift.price_range.match(/\$?(\d+)(?:\s*-\s*\$?(\d+))?/);
+
         if (priceMatch) {
           budget_min = parseInt(priceMatch[1]) || 0;
           budget_max = parseInt(priceMatch[2] || priceMatch[1]) || 999;
@@ -322,12 +343,12 @@ async function generateAiGifts({ age, gender, interests, profession, budget, occ
           budget_max: budget_max,
           image_url: image_url,
           ai_generated: true,
-          ai_suggested: true
+          ai_suggested: true  // Додатковий флаг для того, щоб позначити свіжі пропозиції ШІ на фронтенді
         };
 
         console.log(`✅ [${requestId}] Inserted gift "${gift.name}" with ID ${newGiftId}`);
 
-        // Оновлюємо статус генерації подарунків
+        // Оновлюємо статус генерації подарунків, додаючи новий
         const currentStatus = pendingAiSuggestions.get(requestId);
         pendingAiSuggestions.set(requestId, {
           status: 'generating',
@@ -335,13 +356,12 @@ async function generateAiGifts({ age, gender, interests, profession, budget, occ
           total: giftCount,
           completed: currentStatus.completed + 1
         });
-
       } catch (err) {
         console.error(`❌ [${requestId}] Failed to insert gift "${gift.name}": ${err.message}`);
       }
     }
 
-    // 3. Оновлюємо статус генерації подарунків
+    // 3. Оновлюємо статус генерації подарунків після завершення всіх вставок
     const finalStatus = pendingAiSuggestions.get(requestId);
     pendingAiSuggestions.set(requestId, {
       status: 'completed',
@@ -358,7 +378,7 @@ async function generateAiGifts({ age, gender, interests, profession, budget, occ
   }
 }
 
-// Функція для збагачення подарунків зображеннями
+// Функція для додавання зображень до подарунків, які їх не мають
 async function enrichGiftsWithImages(gifts) {
   const enrichedGifts = [...gifts];
 
@@ -368,12 +388,13 @@ async function enrichGiftsWithImages(gifts) {
     // Пропускаємо подарунки, які вже мають зображення
     if (gift.image_url) continue;
 
-    // Використовуємо назву англійською, якщо вона є
+    // Використовуємо назву англійською, якщо вона є, для кращого пошуку
     const queryName = gift.name_en || gift.name;
     const isEnglish = Boolean(gift.name_en && gift.name_en.trim());
 
     try {
       const imageUrl = await getImageUrl(queryName, isEnglish);
+
       if (imageUrl) {
         enrichedGifts[i] = {
           ...gift,
@@ -394,11 +415,12 @@ async function enrichGiftsWithImages(gifts) {
   return enrichedGifts;
 }
 
-// Ендпоінт для оновлення зображень подарунків
+// Ендпоінт для ручного запуску оновлення зображень подарунків
 app.get('/api/refresh-images', authenticateToken, async (req, res) => {
   const forceRefresh = req.query.force === 'true';
 
   try {
+    // Отримуємо всі подарунки без зображень або всі подарунки, якщо forceRefresh=true
     const [giftsToUpdate] = await pool.query(
       forceRefresh
         ? 'SELECT id, name, name_en FROM gifts WHERE name IS NOT NULL AND name != ""'
@@ -414,7 +436,7 @@ app.get('/api/refresh-images', authenticateToken, async (req, res) => {
       count: giftsToUpdate.length
     });
 
-    // Обробка зображень в фоновому режимі
+    // Обробка зображень в фоновому режимі після відправки відповіді
     (async () => {
       let updatedCount = 0;
       let failedCount = 0;
@@ -451,7 +473,9 @@ app.get('/api/refresh-images', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Image refresh error:', error);
-    res.status(500).json({ message: 'Error starting image refresh', error: error.message });
+    res.status(500).json({
+      message: 'Error starting image refresh', error: error.message
+    });
   }
 });
 
