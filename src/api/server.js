@@ -450,26 +450,125 @@ app.get('/api/refresh-images', authenticateToken, async (req, res) => {
   }
 });
 
+let isImageFetchingInProgress = false;
+
+async function fetchAndAssignImagesInBackground(force = false) {
+  if (isImageFetchingInProgress) {
+    console.log('🔄 Image fetching already in progress. Skipping new run.');
+    return;
+  }
+  isImageFetchingInProgress = true;
+  console.log(`🔄 Starting background image fetch (Force: ${force})`);
+
+  try {
+    // Select gifts that need images (or all if forced)
+    const sql = force
+      ? 'SELECT id, name, name_en FROM gifts WHERE name IS NOT NULL AND name != ""'
+      : 'SELECT id, name, name_en FROM gifts WHERE (image_url IS NULL OR image_url = "") AND name IS NOT NULL AND name != ""';
+    const [giftsToUpdate] = await pool.query(sql);
+
+    if (giftsToUpdate.length === 0) {
+      console.log('✅ No gifts require image fetching.');
+      return;
+    }
+    console.log(`🔍 Found ${giftsToUpdate.length} gifts to fetch images for.`);
+
+    let updatedCount = 0;
+    let failedCount = 0;
+
+    for (const gift of giftsToUpdate) {
+      try {
+        console.log(`⏳ Fetching image for "${gift.name}"...`);
+
+        // Prefer English name if available
+        const queryName = gift.name_en || gift.name;
+        const isEnglish = Boolean(gift.name_en && gift.name_en.trim());
+
+        // Call the Pexels service with the proper flag
+        const imageUrl = await getImageUrl(queryName, isEnglish);
+
+        if (imageUrl) {
+          await pool.query(
+            'UPDATE gifts SET image_url = ? WHERE id = ?',
+            [imageUrl, gift.id]
+          );
+          updatedCount++;
+          console.log(`✅ Assigned image for "${queryName}".`);
+        } else {
+          failedCount++;
+        }
+      } catch (err) {
+        failedCount++;
+        console.error(`❌ Error processing image for "${gift.name}":`, err.message);
+      }
+      // Optional delay to avoid rapid-fire requests:
+      await new Promise(res => setTimeout(res, 500));
+    }
+
+    console.log(`✅ Background image fetch complete. Updated: ${updatedCount}, Failed: ${failedCount}`);
+  } catch (err) {
+    console.error('❌ Fatal error during background image fetch:', err);
+  } finally {
+    isImageFetchingInProgress = false;
+    console.log('🔄 Background image fetch process finished.');
+  }
+}
+
+// Image initialization on startup
+; (async () => {
+  try {
+    console.log('🚀 Server starting - checking for missing gift images');
+    const [giftsWithoutImages] = await pool.query(
+      'SELECT id, name, name_en FROM gifts WHERE image_url IS NULL OR image_url = ""'
+    );
+
+    if (giftsWithoutImages.length === 0) {
+      console.log('✅ All gifts already have images - skipping image refresh');
+      return;
+    }
+
+    console.log(`🔍 Found ${giftsWithoutImages.length} gifts without images - fetching from Pexels`);
+    let updatedCount = 0;
+
+    for (const gift of giftsWithoutImages) {
+      try {
+        const queryName = gift.name_en || gift.name;
+        const isEnglish = Boolean(gift.name_en && gift.name_en.trim());
+        const imageUrl = await getImageUrl(queryName, isEnglish);
+
+        if (imageUrl) {
+          await pool.query(
+            'UPDATE gifts SET image_url = ? WHERE id = ?',
+            [imageUrl, gift.id]
+          );
+          updatedCount++;
+          console.log(`✅ Added image for "${queryName}"`);
+        } else {
+          console.warn(`⚠️ No image for "${queryName}" (rate‑limited or not found), skipping.`);
+        }
+      } catch (error) {
+        console.error(`❌ Failed to add image for "${gift.name}" (using "${gift.name_en}")`, error);
+      }
+    }
+
+    console.log(`✅ Added images for ${updatedCount} out of ${giftsWithoutImages.length} gifts`);
+  } catch (error) {
+    console.error('❌ Error during initial image check:', error);
+  }
+})();
+
+// periodic retry unchanged...
+setInterval(async () => {
+  console.log('⏳ Periodic retry to fetch missing images…');
+  try {
+    await fetchAndAssignImagesInBackground(false);
+  } catch (err) {
+    console.error('Periodic image fetch failed:', err);
+  }
+}, 60 * 1000);
+
+
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-
-  // Check for missing images on startup
-  (async () => {
-    try {
-      const [giftsWithoutImages] = await pool.query(
-        'SELECT COUNT(*) as count FROM gifts WHERE image_url IS NULL OR image_url = ""'
-      );
-
-      const missingImagesCount = giftsWithoutImages[0].count;
-
-      if (missingImagesCount > 0) {
-        console.log(`⚠️ Found ${missingImagesCount} gifts without images`);
-      } else {
-        console.log('✅ All gifts have images');
-      }
-    } catch (err) {
-      console.error('❌ Error checking for missing images:', err);
-    }
-  })();
-});
+  console.log(`🚀 Server running on port ${PORT}`)
+})
