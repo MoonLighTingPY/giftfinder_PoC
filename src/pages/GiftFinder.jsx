@@ -111,7 +111,7 @@ const GiftFinder = () => {
       }
     } catch (error) {
       console.error('Помилка отримання початкових рекомендацій:', error);
-      dispatch(setError('Виникла помилка при пошуку подарунків. Будь ласка, спробуйте пізніше.'));
+      dispatch(setError('Виникла помилка: Схоже, вичерпався jwt-token. Авторизуйтеся заново.'));
       dispatch(setAiStatus('error'));
       dispatch(setIsSearching(false));
     }
